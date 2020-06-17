@@ -1,4 +1,5 @@
-(function(root, factory){
+(function (root, factory) {
+
 
 	//UMD
 	if ( typeof define === "function" && define.amd ) {

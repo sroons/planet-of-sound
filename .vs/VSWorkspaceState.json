@@ -1,6 +1,8 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\dist",
+    "\\src"
   ],
   "SelectedNode": "\\planets.html",
   "PreviewInSolutionExplorer": false
