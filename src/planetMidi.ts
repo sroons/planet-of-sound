@@ -16,7 +16,7 @@ interface MidiNote {
      constructor(callback:function) {
          var self = this;
          this.midiDevices = [];
-         this.outputDevice = 1;
+         this.outputDevice = 0;
          this.enabled = false;
          this.isPlaying = false;
          WebMidi.enable(function (err) {
@@ -37,8 +37,8 @@ interface MidiNote {
 
     };
 
-     playNote(pitch: string, velocity: number, duration: number) {
-         if (this.enabled && this.isPlaying) WebMidi.outputs[this.outputDevice].playNote(pitch, 1, { duration: duration, velocity: velocity });
+     playNote(pitch: string, velocity: number, duration: number, channel:number) {
+         if (this.enabled && this.isPlaying) WebMidi.outputs[this.outputDevice].playNote(pitch, channel, { duration: duration, velocity: velocity });
     };
 
      stopAll() {

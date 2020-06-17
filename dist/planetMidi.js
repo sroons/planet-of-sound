@@ -2,7 +2,7 @@ var MidiInterface = /** @class */ (function () {
     function MidiInterface(callback) {
         var self = this;
         this.midiDevices = [];
-        this.outputDevice = 1;
+        this.outputDevice = 0;
         this.enabled = false;
         this.isPlaying = false;
         WebMidi.enable(function (err) {
@@ -23,9 +23,9 @@ var MidiInterface = /** @class */ (function () {
         });
     }
     ;
-    MidiInterface.prototype.playNote = function (pitch, velocity, duration) {
+    MidiInterface.prototype.playNote = function (pitch, velocity, duration, channel) {
         if (this.enabled && this.isPlaying)
-            WebMidi.outputs[this.outputDevice].playNote(pitch, 1, { duration: duration, velocity: velocity });
+            WebMidi.outputs[this.outputDevice].playNote(pitch, channel, { duration: duration, velocity: velocity });
     };
     ;
     MidiInterface.prototype.stopAll = function () {

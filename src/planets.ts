@@ -27,12 +27,15 @@ simulation.prototype = {
     midiInterface: null,
     midiSelect: null,
     gridSizeSelect: null,
+    midiRange:[-1,4],
+    toneRange:[0,6],
 
     init: function (systems, scales) {
         var self = this;
         this.midiInterface = new MidiInterface(function (msg) {
-            self.addMidiOptions()
+            self.addAudioOptions()
         });
+        this.toneInterface = new ToneInterface();
         this.center = view.center;
         this.scales = scales
         this.systems = systems;
@@ -42,11 +45,11 @@ simulation.prototype = {
         this.initializePlanets();
     },
 
+
     setGridSize: function (newSize) {
         if (this.gridSizeSelect == undefined) this.gridSizeSelect = document.getElementById("gridSize");
-        console.log(this.gridSizeSelect);
+        //console.log(this.gridSizeSelect);
         this.GRIDSIZE = this.gridSizeSelect.options[this.gridSizeSelect.selectedIndex].value;
-        console.log("gridsize::: " + this.GRIDSIZSE);
     },
 
     resetGrid: function () {
@@ -70,12 +73,26 @@ simulation.prototype = {
         do {
             newX = this.GRIDSIZE * x;
             convertedX = Math.floor(this.paperCoordinates(new Point(newX, 0)).x);
-            var pitch = this.getPitch(x, "v");
-            var line = new GridLine(convertedX, 0, this.CANVAS_RECT.height, 0.2, pitch, "vertical");
+            var midiPitch = this.getPitch(x, "v", "midi");
+            var tonePitch = this.getPitch(x, "v", "audio");
+            var line = new GridLine(convertedX, 0, this.CANVAS_RECT.height, 0.2, midiPitch, tonePitch, "vertical");
             line.path = new Path.Line(
                 new Point(newX, 0),
                 new Point(newX, this.CANVAS_RECT.height)
             )
+            line.text = new PointText(new Point(newX, this.GRIDSIZE));
+            line.text.strokeColor = "#fff";
+            line.text.fillColor = "#fff";
+            line.text.opacity = 1;
+            line.text.fontSize = 10;
+            line.text.opacity = 0.3;
+            line.text.fontWeight = 100;
+            line.text.fontFamily = "sans-serif";
+            line.text.justification = "center";
+
+            var xrange = [0, this.CANVAS_RECT.width];
+            var pan = this.convertRange(newX, xrange, [-1, 1]);
+            line.string = this.toneInterface.makeString(pan, "V");
             this.GRID.VERTICALS[x] = line;
             x++;
         }
@@ -88,29 +105,43 @@ simulation.prototype = {
         var y = 1;
         do {
             newY = this.GRIDSIZE * y;
-            pitch = this.getPitch(y, "h");
+            midiPitch = this.getPitch(y, "h", "midi");
+            tonePitch = this.getPitch(y, "h", "audio");
             convertedY = Math.floor(this.paperCoordinates(new Point(0, newY)).y);
-            var line = new GridLine(0, convertedY, this.CANVAS_RECT.width, 0.2, pitch, "horizontal");
+            var line = new GridLine(0, convertedY, this.CANVAS_RECT.width, 0.2, midiPitch, tonePitch, "horizontal");
             line.path = new Path.Line(
                 new Point(0, newY),
                 new Point(this.CANVAS_RECT.width, newY)
             );
+            line.text = new PointText(new Point(this.GRIDSIZE, newY));
+            line.text.strokeColor = "#fff";
+            line.text.strokeColor = "#fff";
+            line.text.fillColor = "#fff";
+            line.text.opacity = 1;
+            line.text.fontSize = 10;
+            line.text.opacity = 0.3;
+            line.text.fontWeight = 100;
+            line.text.fontFamily = "sans-serif";
+            line.text.justification = "center";
+
+            line.string = this.toneInterface.makeString(0, "H");
             this.GRID.HORIZONTALS[y] = line;
             y++;
         }
         while (this.GRIDSIZE * y < this.CANVAS_RECT.height);
     },
 
-    getPitch: function (lineNum, horizOrVert) {
+    getPitch: function (lineNum, horizOrVert, midiOrAudio) {
         if (this.scaleToPlay.h == undefined) {
             this.scaleToPlay.h = this.scales[this.h_scaleSelect.options[this.h_scaleSelect.selectedIndex].value];
             this.scaleToPlay.v = this.scales[this.v_scaleSelect.options[this.v_scaleSelect.selectedIndex].value];
         };
         var scale = this.scaleToPlay[horizOrVert];
-        var pitch = scale[lineNum % scale.length] + "" + this.octave;
-        if (lineNum % scale.length == 0) {
-            if (this.octave++ > 4) this.octave = 0;
-        }
+        //var octave = Math.floor(lineNum / scale.length);
+
+        var numGridLines = (horizOrVert == "h") ? this.CANVAS_RECT.height / this.GRIDSIZE : this.CANVAS_RECT.width / this.GRIDSIZE;
+        var octave = Math.floor(this.convertRange(lineNum, [0, numGridLines], [0, 8]));
+        var pitch = scale[lineNum % scale.length] + "" + octave;
         return pitch
     },
 
@@ -144,24 +175,25 @@ simulation.prototype = {
         this.gridSizeSelect.addEventListener('change', function () {
             self.resetGrid();
         }, false);
+        this.gridSizeSelect.value = 25;
     },
 
-    addMidiOptions: function () {
+    addAudioOptions: function () {
         var self = this;
         this.midiSelect = document.getElementById("midiOutput");
         this.midiSelect.addEventListener('change', function () {
             self.setMidiDevice();
         }, false);
         var devices = this.midiInterface.getMidiDeviceNames();
-        console.log("devices::: " + devices);
         for (var i = 0; i < devices.length; i++) {
             device = devices[i];
             this.midiSelect.options[this.midiSelect.options.length] = new Option(device, device);
         };
+        this.midiSelect.options[this.midiSelect.options.length] = new Option("web audio", "webaudio");
     },
 
     setMidiDevice: function () {
-        this.midiInterface.setOutput[this.midiSelect.selectedIndex];
+        this.midiInterface.setOutput(this.midiSelect.selectedIndex);
     },
 
     initializePlanets: function () {
@@ -186,6 +218,7 @@ simulation.prototype = {
     initializeScale: function (whichScale) {
         var scaleSelect = whichScale + "_scaleSelect";
         this.scaleToPlay[whichScale] = this.scales[this[scaleSelect].options[this[scaleSelect].selectedIndex].value];
+        //console.log("scale ::: " + this.scaleToPlay[whichScale]);
         this.clearGrid();
         this.initializeGrid();
     },
@@ -195,11 +228,17 @@ simulation.prototype = {
             if (line.path != undefined) {
                 line.path.remove()
             }
+            if (line.text != undefined) {
+                line.text.remove()
+            }
         }
         for (var i = 0; i < this.GRID.HORIZONTALS.length; i++) {
             var line = this.GRID.HORIZONTALS[i]
             if (line.path != undefined) {
                 line.path.remove();
+            }
+            if (line.text != undefined) {
+                line.text.remove()
             }
         }
     },
@@ -288,7 +327,7 @@ simulation.prototype = {
             //color the line red
             this.setLinePlucked(gridline, planet, gridlineCrossedX, "H");
             //make a midi note from the line properties
-            this.makeMidiNote(gridline, planet, "x");
+            this.makeNote(gridline, planet, "x", "H");
 
         }
         var gridlineCrossedY = this.checkGridCrossingY(planet);
@@ -297,7 +336,7 @@ simulation.prototype = {
             this.setLinePlucked(gridline, planet, gridlineCrossedY, "V")
             //console.log("%chorizontal gridline crossed :: " + gridlineCrossedY, "background:" + planet.color);
             //make a midinote from the line properties
-            this.makeMidiNote(gridline, planet, "y");
+            this.makeNote(gridline, planet, "y", "V");
         }
 
     },
@@ -309,8 +348,7 @@ simulation.prototype = {
         var planetRadius = Math.floor(planet.circle.bounds.width)/ 2;
         newX = Math.floor(newX - planetRadius);
         for (var i = 0; i < this.GRID.VERTICALS.length; i++) {
-            if (newX == this.GRID.VERTICALS[i].x) {    
-                
+            if (newX == this.GRID.VERTICALS[i].x) {                   
                 if (i != planet.lastCrossedLine_V) {
                     planet.lastCrossedLine_V = i;
                     lineNum = i;
@@ -336,20 +374,41 @@ simulation.prototype = {
         }
         return lineNum;
     },
-    makeMidiNote: function (gridline:object, planet:object, whichVelocity:string) {
+    makeNote: function (gridline: object, planet: object, whichVelocity: string, horizOrVert: string) {
+        if (this.midiSelect.value == "webaudio") {
+            //user has selected web audio
+            this.makeToneNote(gridline, planet, whichVelocity, horizOrVert);
+        } else {
+            this.makeMidiNote(gridline, planet, whichVelocity, horizOrVert);
+        }
+    },
+
+    makeMidiNote: function (gridline:object, planet:object, whichVelocity:string, horizOrVert:string) {
         //call midi functionality here;
         var planetVelocity = Math.abs(Math.floor(planet.velocity[whichVelocity]));
         var velocity = this.convertRange(planetVelocity, [10, 500], [50, 127]);
         var duration = planet.mass
-        this.midiInterface.playNote(gridline.midiNote, velocity, duration)
+        var channel = horizOrVert == "H" ? 1 : 2;
+        this.midiInterface.playNote(gridline.midiNote, velocity, duration, channel)
     },
 
-    X_RANGE: [-150, 150],
+    //note -- for web audio every string should have its own synth
+    makeToneNote: function (gridline: object, planet: object, whichVelocity: string, horizOrVert: string) {
+        var xrange = [0, this.CANVAS_RECT.width];
+        var pan = this.convertRange(planet.X, xrange, [-1, 1]);
+        var planetVelocity = Math.abs(Math.floor(planet.velocity[whichVelocity]));;
+        var velocity = this.convertRange(planetVelocity, [10, 500], [50, 127]);
+        var pitch = gridline.webAudioNote;
+        //this.toneInterface.playNote(pitch, velocity, 100, pan, horizOrVert);
+        this.toneInterface.playString(gridline.string, pitch);
+    },
+
+    /*X_RANGE: [-150, 150],
     PAN_RANGE: [1, -1],
     getPlanetSoundPan: function (val) {
         return this.convertRange(val, this.X_RANGE, this.PAN_RANGE)
     },
-
+    
     getPlanetSoundFrequency: function (val) {
         return this.pixelToFreq(val);
     },
@@ -372,7 +431,7 @@ simulation.prototype = {
         if (newFreq > 1000) return 1000;
         return newFreq;
     },
-
+    */
     convertRange: function (input:number, r1:number[], r2:number[]) {
         return (input - r1[0]) * (r2[1] - r2[0]) / (r1[1] - r1[0]) + r2[0];
     },
@@ -410,10 +469,14 @@ simulation.prototype = {
             if (line.plucked) {
                 line.path.strokeColor = line.pluckedColor;
                 line.path.opacity -= 0.03;
+                
             } else {
                 line.path.strokeColor = line.color;
                 line.path.opacity = 0.15;
             }
+        }
+        if (line.text != undefined) {
+            line.text.content = line.webAudioNote;
         }
     },
     T: 0,
@@ -485,16 +548,16 @@ simulation.prototype = {
 
 
 const colors = [
-    "#ff5e00",
+    "#ff00d4",
+    "#0099ff",
     "#ffbf00",
     "#6aff00",
     "#00ffd9",
-    "#0099ff",
+    "#ff5e00",
     "#ff00d4",
     "#00ffe1",
     "#ffff0a",
     "#0aff6c",
-
 ];
 
 function three_body(p1, p2) {
@@ -504,7 +567,7 @@ function three_body(p1, p2) {
             y: 0,
             velX: 100 * p1,
             velY: 100 * p2,
-            color: getColor(),
+            color: getColor(1),
             soundWave: "sine2"
         },
         {
@@ -513,7 +576,7 @@ function three_body(p1, p2) {
             y: 0,
             velX: 100 * p1,
             velY: 100 * p2,
-            color: getColor(),
+            color: getColor(2),
             soundWave: "sine4"
         },
         {
@@ -522,7 +585,7 @@ function three_body(p1, p2) {
             y: 0,
             velX: -200 * p1,
             velY: -200 * p2,
-            color: getColor(),
+            color: getColor(3),
             soundWave: "sine6"
         },
     ];
@@ -536,7 +599,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: -6.5,
-        color: getColor(),
+        color: getColor(0),
         soundWave: "sine2"
     },
     {
@@ -545,7 +608,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: 120,
-        color: getColor(),
+        color: getColor(1),
         soundWave: "sine4"
     },
     ],
@@ -555,7 +618,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: -6.5,
-        color: getColor(),
+        color: getColor(0),
         soundWave: "sine2"
     },
     {
@@ -564,7 +627,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: 120,
-        color: getColor(),
+        color: getColor(1),
         soundWave: "sine4"
     },
     {
@@ -573,7 +636,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: 53,
-        color: getColor(),
+        color: getColor(2),
         soundWave: "sine6"
     }
     ],
@@ -584,7 +647,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: -20,
-        color: getColor(),
+        color: getColor(0),
         },
         {
             mass: 200,
@@ -592,7 +655,7 @@ var systems = {
             y: 0,
             velX: 0,
             velY: 5,
-            color: getColor(),
+            color: getColor(1),
         },
     ],
     four_star_ballet: [{
@@ -601,7 +664,7 @@ var systems = {
         y: 100,
         velX: -50,
         velY: -50,
-        color: getColor(),
+        color: getColor(0),
         soundWave: "sine2"
     },
     {
@@ -610,7 +673,7 @@ var systems = {
         y: 100,
         velX: -50,
         velY: 50,
-        color: getColor(),
+        color: getColor(1),
         soundWave: "sine4"
     },
     {
@@ -619,7 +682,7 @@ var systems = {
         y: -100,
         velX: 50,
         velY: 50,
-        color: getColor(),
+        color: getColor(2),
         soundWave: "sine6"
     },
     {
@@ -628,7 +691,7 @@ var systems = {
         y: -100,
         velX: 50,
         velY: -50,
-        color: getColor(),
+        color: getColor(3),
         soundWave: "sine8"
     }
     ],
@@ -639,7 +702,7 @@ var systems = {
         y: -3,
         velX: 0,
         velY: -155,
-        color: getColor(),
+        color: getColor(0),
         soundWave: "sine2"
     },
     {
@@ -648,7 +711,7 @@ var systems = {
         y: 0,
         velX: 1,
         velY: 150,
-        color: getColor(),
+        color: getColor(1),
         soundWave: "sine4"
     },
     {
@@ -657,7 +720,7 @@ var systems = {
         y: -2,
         velX: -1,
         velY: 42,
-        color: getColor(),
+        color: getColor(2),
         soundWave: "sine6"
     },
     {
@@ -666,7 +729,7 @@ var systems = {
         y: 0,
         velX: -1,
         velY: -52,
-        color: getColor(),
+        color: getColor(3),
         soundWave: "sine8"
     }
     ],
@@ -677,7 +740,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: 0,
-        color: getColor(),
+        color: getColor(0),
         soundWave: "sine2"
     },
     {
@@ -686,7 +749,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: 120,
-        color: getColor(),
+        color: getColor(1),
         soundWave: "sine4"
     },
     {
@@ -695,7 +758,7 @@ var systems = {
         y: 130,
         velX: -15,
         velY: -28,
-        color: getColor(),
+        color: getColor(2),
         soundWave: "sine6"
     }
     ],
@@ -706,7 +769,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: 0,
-        color: getColor(),
+        color: getColor(0),
         soundWave: "sine2"
     },
     {
@@ -715,7 +778,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: 151,
-        color: getColor(),
+        color: getColor(1),
         soundWave: "sine4"
     },
     {
@@ -724,7 +787,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: 60,
-        color: getColor(),
+        color: getColor(2),
         soundWave: "sine6"
     },
     {
@@ -733,7 +796,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: 37,
-        color: getColor(),
+        color: getColor(3),
         soundWave: "sine8"
     }
     ],
@@ -745,7 +808,7 @@ var systems = {
         y: 0,
         velX: 0,
         velY: -93.9325,
-        color: getColor(),
+        color: getColor(0),
         soundWave: "sine2"
     },
     {
@@ -754,7 +817,7 @@ var systems = {
         y: -64.7584,
         velX: -50.5328,
         velY: 46.96663,
-        color: getColor(),
+        color: getColor(1),
         soundWave: "sine4"
     },
     {
@@ -763,7 +826,7 @@ var systems = {
         y: 64.7584,
         velX: 50.5328,
         velY: 46.96663,
-        color: getColor(),
+        color: getColor(2),
         soundWave: "sine6"
     }
     ],
@@ -771,34 +834,68 @@ var systems = {
     butterfly_1: three_body(0.306893, 0.125507),
     butterfly_2: three_body(0.392955, 0.097579),
     bumblebee: three_body(0.184279, 0.587188),
-    //dragonfly: three_body(0.080584, 0.588836),
+    dragonfly: three_body(0.080584, 0.588836),
     googles: three_body(0.083300, 0.127889),
     mouth_1: three_body(0.464445, 0.396060),
     mouth_2: three_body(0.439166, 0.452968),
-    //mouth_3: three_body(0.383444, 0.377364),
+    mouth_3: three_body(0.383444, 0.377364),
     butterfly_3: three_body(0.405916, 0.230163),
-    //butterfly_4: three_body(0.350112, 0.079339),
+    butterfly_4: three_body(0.350112, 0.079339),
     yarn: three_body(0.559064, 0.349192),
     ying_yang: three_body(0.513938, 0.304736),
     ying_yang_1b: three_body(0.282699, 0.327209),
-    //ying_yang_2a: three_body(0.416822, 0.330333),
-    //ying_yang_2b: three_body(0.417343, 0.313100)
+    ying_yang_2a: three_body(0.416822, 0.330333),
+    ying_yang_2b: three_body(0.417343, 0.313100)
 }
 
 var scales = {
-    c_major: ["C", "E", "G"],
-    c_minor: ["C", "Eb", "G", "B"],
-    d_major: ["D", "F#", "A"],
-    d_minor: ["D", "F", "A", "C"],
-    g_major: ["G", "B", "D"],
-    c_harmonic_minor: ["C", "D", "Eb", "F", "G", "Ab", "B"],
-    chromatic: ["C", "C#", "D", "D#", "E", "F", "G", "G#", "A", "A#", "B"]
+    test_scale: ["C", "C", "C", "C"],
+    c_major: Tonal.Scale.get("C major").notes,
+    /*c_major_bebop: Tonal.Scale.get("C bebop").notes,
+    c_major_pentatonic: Tonal.Scale.get("C pentatonic").notes,
+    c_minor: Tonal.Scale.get("C minor").notes,
+    d_major: Tonal.Scale.get("D major").notes,
+    d_major_bebop: Tonal.Scale.get("D bebop").notes,
+    d_major_pentatonic: Tonal.Scale.get("D pentatonic").notes,
+    d_minor: Tonal.Scale.get("D minor").notes,
+    e_major: Tonal.Scale.get("E major").notes,
+    e_major_bebop: Tonal.Scale.get("E bebop").notes,
+    e_major_pentatonic: Tonal.Scale.get("E pentatonic").notes,
+    e_minor: Tonal.Scale.get("E minor").notes,
+    f_major: Tonal.Scale.get("F major").notes,
+    f_major_bebop: Tonal.Scale.get("F bebop").notes,
+    f_major_pentatonic: Tonal.Scale.get("F pentatonic").notes,
+    f_minor: Tonal.Scale.get("F minor").notes,
+    g_major: Tonal.Scale.get("G major").notes,
+    g_major_bebop: Tonal.Scale.get("G bebop").notes,
+    g_major_pentatonic: Tonal.Scale.get("G pentatonic").notes,
+    g_minor: Tonal.Scale.get("G minor").notes,
+    a_major: Tonal.Scale.get("A major").notes,
+    a_major_bebop: Tonal.Scale.get("A bebop").notes,
+    a_major_pentatonic: Tonal.Scale.get("A pentatonic").notes,
+    a_minor: Tonal.Scale.get("A minor").notes,
+    b_major: Tonal.Scale.get("B major").notes,
+    b_major_bebop: Tonal.Scale.get("B bebop").notes,
+    b_major_pentatonic: Tonal.Scale.get("B pentatonic").notes,
+    b_minor: Tonal.Scale.get("B minor").notes,
+    chromatic: ["C", "C#", "D", "D#", "E", "F", "G", "G#", "A", "A#", "B"]*/
 };
 
+function getScales() {
+    var allScales = Tonal.Scale.names();
+    var notes = null;
+    for (var i = 0; i < allScales.length; i++) {
+        notes = Tonal.Scale.get("C " + allScales[i]).notes
+        scaleName = "c-" + allScales[i].replace(/\s+/g, '-').toLowerCase();
+        scales[scaleName] = notes;
+    }
+}
+getScales();    
 
 
-function getColor() {
-    var clr = colors[Math.floor(Math.random() * colors.length)];
+function getColor(colorNum) {
+    if (colorNum == undefined) colorNum = Math.floor(Math.random() * colors.length);
+    var clr = colors[colorNum];
     return clr;
 }
 
