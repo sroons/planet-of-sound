@@ -1,5 +1,3 @@
-//import { MidiInterface } from "./planetMidi";
-//import { Point } from "../paper.js";
 
 var simulation = function () { }
 
@@ -58,7 +56,7 @@ simulation.prototype = {
         this.initializeGrid();
     },
 
-
+    showNotes:false,
     initializeGrid: function () {
         var c = document.getElementById("canvas");
         this.CANVAS_RECT = c.getBoundingClientRect();
@@ -80,15 +78,17 @@ simulation.prototype = {
                 new Point(newX, 0),
                 new Point(newX, this.CANVAS_RECT.height)
             )
-            line.text = new PointText(new Point(newX, this.GRIDSIZE));
-            line.text.strokeColor = "#fff";
-            line.text.fillColor = "#fff";
-            line.text.opacity = 1;
-            line.text.fontSize = 10;
-            line.text.opacity = 0.3;
-            line.text.fontWeight = 100;
-            line.text.fontFamily = "sans-serif";
-            line.text.justification = "center";
+            if (this.showNotes) {
+                line.text = new PointText(new Point(newX, this.GRIDSIZE));
+                line.text.strokeColor = "#fff";
+                line.text.fillColor = "#fff";
+                line.text.opacity = 1;
+                line.text.fontSize = (this.GRIDSIZE / 1.5 < 15 ? this.GRIDSIZE / 1.5 : 15);
+                line.text.opacity = 0.3;
+                line.text.fontWeight = 100;
+                line.text.fontFamily = "sans-serif";
+                line.text.justification = "center";
+            }
 
             var xrange = [0, this.CANVAS_RECT.width];
             var pan = this.convertRange(newX, xrange, [-1, 1]);
@@ -113,16 +113,18 @@ simulation.prototype = {
                 new Point(0, newY),
                 new Point(this.CANVAS_RECT.width, newY)
             );
-            line.text = new PointText(new Point(this.GRIDSIZE, newY));
-            line.text.strokeColor = "#fff";
-            line.text.strokeColor = "#fff";
-            line.text.fillColor = "#fff";
-            line.text.opacity = 1;
-            line.text.fontSize = 10;
-            line.text.opacity = 0.3;
-            line.text.fontWeight = 100;
-            line.text.fontFamily = "sans-serif";
-            line.text.justification = "center";
+            if (this.showNotes) {
+                line.text = new PointText(new Point(this.GRIDSIZE, newY));
+                line.text.strokeColor = "#fff";
+                line.text.strokeColor = "#fff";
+                line.text.fillColor = "#fff";
+                line.text.opacity = 1;
+                line.text.fontSize = (this.GRIDSIZE / 1.5 < 15 ? this.GRIDSIZE / 1.5 : 15);
+                line.text.opacity = 0.3;
+                line.text.fontWeight = 100;
+                line.text.fontFamily = "sans-serif";
+                line.text.justification = "center";
+            }
 
             line.string = this.toneInterface.makeString(0, "H");
             this.GRID.HORIZONTALS[y] = line;
@@ -176,6 +178,18 @@ simulation.prototype = {
             self.resetGrid();
         }, false);
         this.gridSizeSelect.value = 25;
+
+        this.showNotesCheckbox = document.getElementById("showNotes");
+        this.showNotesCheckbox.addEventListener('click', function () {
+            self.setNotesVisible();
+        }, false);
+
+    },
+
+    setNotesVisible: function () {
+        this.showNotes = this.showNotesCheckbox.checked;
+        this.clearGrid();
+        this.initializeGrid();
     },
 
     addAudioOptions: function () {
@@ -347,12 +361,36 @@ simulation.prototype = {
         var newX = Math.floor(planet.position.x);
         var planetRadius = Math.floor(planet.circle.bounds.width)/ 2;
         newX = Math.floor(newX - planetRadius);
-        for (var i = 0; i < this.GRID.VERTICALS.length; i++) {
+        /*for (var i = 0; i < this.GRID.VERTICALS.length; i++) {
             if (newX == this.GRID.VERTICALS[i].x) {                   
                 if (i != planet.lastCrossedLine_V) {
                     planet.lastCrossedLine_V = i;
                     lineNum = i;
                     break;
+                }
+            }
+        }*/
+        //hit is most likely to occur in the middle of the grid
+        //start on the middle line and go up
+        //if not found, go back to the middle line and go down
+        var start = Math.floor(this.GRID.VERTICALS.length / 2);
+        for (var i = start; i < this.GRID.VERTICALS.length; i++) {
+            if (newX == this.GRID.VERTICALS[i].x) {
+                if (i != planet.lastCrossedLine_V) {
+                    planet.lastCrossedLine_V = i;
+                    lineNum = i;
+                    break;
+                }
+            }
+        }
+        if (lineNum == -1) {
+            for (var i = start; i > 0; i--) {
+                if (newX == this.GRID.VERTICALS[i].x) {
+                    if (i != planet.lastCrossedLine_V) {
+                        planet.lastCrossedLine_V = i;
+                        lineNum = i;
+                        break;
+                    }
                 }
             }
         }
@@ -363,12 +401,36 @@ simulation.prototype = {
         var newY = Math.floor(planet.position.y);
         var planetRadius = Math.floor(planet.circle.bounds.height) / 2;
         newY = Math.floor(newY - planetRadius);
-        for (var i = 0; i < this.GRID.HORIZONTALS.length; i++) {
+        /*for (var i = 0; i < this.GRID.HORIZONTALS.length; i++) {
             if (newY == this.GRID.HORIZONTALS[i].y) {
                 if (i != planet.lastCrossedLine_H) {
                     planet.lastCrossedLine_H = i;
                     lineNum = i;
                     break;
+                }
+            }
+        }*/
+        //hit is most likely to occur in the middle of the grid
+        //start on the middle line and go up
+        //if not found, go back to the middle line and go down
+        var start = Math.floor(this.GRID.HORIZONTALS.length / 2);
+        for (var i = start; i < this.GRID.HORIZONTALS.length; i++) {
+            if (newY == this.GRID.HORIZONTALS[i].y) {
+                if (i != planet.lastCrossedLine_H) {
+                    planet.lastCrossedLine_H = i;
+                    lineNum = i;
+                    break;
+                }
+            }
+        }
+        if (lineNum == -1) {
+            for (var i = start; i > 0; i--) {
+                if (newY == this.GRID.HORIZONTALS[i].y) {
+                    if (i != planet.lastCrossedLine_H) {
+                        planet.lastCrossedLine_H = i;
+                        lineNum = i;
+                        break;
+                    }
                 }
             }
         }
