@@ -26,7 +26,8 @@ simulation.prototype = {
     midiSelect: null,
     gridSizeSelect: null,
     midiRange:[-1,4],
-    toneRange:[0,6],
+    toneRange: [0, 6],
+    title:"Planet Tones",
 
     init: function (systems, scales) {
         var self = this;
@@ -37,10 +38,12 @@ simulation.prototype = {
         this.center = view.center;
         this.scales = scales
         this.systems = systems;
+        //this.drawTitle();
         this.addOptions();
         this.setGridSize();
         this.initializeGrid();
         this.initializePlanets();
+        
     },
 
 
@@ -54,6 +57,15 @@ simulation.prototype = {
         this.setGridSize();
         this.clearGrid();
         this.initializeGrid();
+    },
+
+    drawTitle: function () {
+        this.titleText = new PointText(new Point(16, 8));
+        this.titleText.fillColor = this.titleText.strokeColor = "#ddd";
+        this.titleText.fontSize = 24;
+        this.titleText.fontWeight = 400;
+        this.titleText.content = this.title;
+        console.log('title :: ' + this.title)
     },
 
     showNotes:false,
@@ -92,7 +104,8 @@ simulation.prototype = {
 
             var xrange = [0, this.CANVAS_RECT.width];
             var pan = this.convertRange(newX, xrange, [-1, 1]);
-            line.string = this.toneInterface.makeString(pan, "V");
+            line.string = this.toneInterface.makeString("V");
+            line.panner = this.toneInterface.makeStringPanner();
             this.GRID.VERTICALS[x] = line;
             x++;
         }
@@ -126,7 +139,8 @@ simulation.prototype = {
                 line.text.justification = "center";
             }
 
-            line.string = this.toneInterface.makeString(0, "H");
+            line.string = this.toneInterface.makeString("H");
+            line.panner = this.toneInterface.makeStringPanner();
             this.GRID.HORIZONTALS[y] = line;
             y++;
         }
@@ -157,6 +171,8 @@ simulation.prototype = {
         for (var system in this.systems) {
             this.select.options[this.select.options.length] = new Option(system, system);
         }
+        var dropdown = new fabric['Dropdown'](document.getElementById("systemDropdown"));
+
 
         this.h_scaleSelect = document.getElementById("scale_h");
         this.h_scaleSelect.addEventListener('change', function () {
@@ -165,6 +181,8 @@ simulation.prototype = {
         for (var scale in this.scales) {
             this.h_scaleSelect.options[this.h_scaleSelect.options.length] = new Option(scale, scale);
         };
+        var dropdown = new fabric['Dropdown'](document.getElementById("h-scale-dropdown"));
+
         this.v_scaleSelect = document.getElementById("scale_v");
         this.v_scaleSelect.addEventListener('change', function () {
             self.initializeScale("v");
@@ -172,12 +190,14 @@ simulation.prototype = {
         for (var scale in this.scales) {
             this.v_scaleSelect.options[this.v_scaleSelect.options.length] = new Option(scale, scale);
         };
+        var dropdown = new fabric['Dropdown'](document.getElementById("v-scale-dropdown"));
 
         this.gridSizeSelect = document.getElementById("gridSize");
         this.gridSizeSelect.addEventListener('change', function () {
             self.resetGrid();
         }, false);
         this.gridSizeSelect.value = 25;
+        var dropdown = new fabric['Dropdown'](document.getElementById("grid-size-dropdown"));
 
         this.showNotesCheckbox = document.getElementById("showNotes");
         this.showNotesCheckbox.addEventListener('click', function () {
@@ -204,6 +224,7 @@ simulation.prototype = {
             this.midiSelect.options[this.midiSelect.options.length] = new Option(device, device);
         };
         this.midiSelect.options[this.midiSelect.options.length] = new Option("web audio", "webaudio");
+        var dropdown = new fabric['Dropdown'](document.getElementById("audio-out-dropdown"));
     },
 
     setMidiDevice: function () {
@@ -232,7 +253,6 @@ simulation.prototype = {
     initializeScale: function (whichScale) {
         var scaleSelect = whichScale + "_scaleSelect";
         this.scaleToPlay[whichScale] = this.scales[this[scaleSelect].options[this[scaleSelect].selectedIndex].value];
-        //console.log("scale ::: " + this.scaleToPlay[whichScale]);
         this.clearGrid();
         this.initializeGrid();
     },
@@ -361,15 +381,6 @@ simulation.prototype = {
         var newX = Math.floor(planet.position.x);
         var planetRadius = Math.floor(planet.circle.bounds.width)/ 2;
         newX = Math.floor(newX - planetRadius);
-        /*for (var i = 0; i < this.GRID.VERTICALS.length; i++) {
-            if (newX == this.GRID.VERTICALS[i].x) {                   
-                if (i != planet.lastCrossedLine_V) {
-                    planet.lastCrossedLine_V = i;
-                    lineNum = i;
-                    break;
-                }
-            }
-        }*/
         //hit is most likely to occur in the middle of the grid
         //start on the middle line and go up
         //if not found, go back to the middle line and go down
@@ -401,15 +412,6 @@ simulation.prototype = {
         var newY = Math.floor(planet.position.y);
         var planetRadius = Math.floor(planet.circle.bounds.height) / 2;
         newY = Math.floor(newY - planetRadius);
-        /*for (var i = 0; i < this.GRID.HORIZONTALS.length; i++) {
-            if (newY == this.GRID.HORIZONTALS[i].y) {
-                if (i != planet.lastCrossedLine_H) {
-                    planet.lastCrossedLine_H = i;
-                    lineNum = i;
-                    break;
-                }
-            }
-        }*/
         //hit is most likely to occur in the middle of the grid
         //start on the middle line and go up
         //if not found, go back to the middle line and go down
@@ -457,34 +459,41 @@ simulation.prototype = {
     //note -- for web audio every string should have its own synth
     makeToneNote: function (gridline: object, planet: object, whichVelocity: string, horizOrVert: string) {
         var xrange = [0, this.CANVAS_RECT.width];
-        var pan = this.convertRange(planet.X, xrange, [-1, 1]);
+        var pan = this.getPlanetSoundPan(this.paperCoordinates(planet.position).x);
         var planetVelocity = Math.abs(Math.floor(planet.velocity[whichVelocity]));;
-        var velocity = this.convertRange(planetVelocity, [10, 500], [50, 127]);
+        //var velocity = this.convertRange(planetVelocity, [10, 500], [50, 127]);
+        var volume = this.velocitytToDb(planetVelocity);
         var pitch = gridline.webAudioNote;
-        //this.toneInterface.playNote(pitch, velocity, 100, pan, horizOrVert);
-        this.toneInterface.playString(gridline.string, pitch);
+        this.toneInterface.playString(gridline, pitch, volume, planet.mass, pan);
     },
 
-    /*X_RANGE: [-150, 150],
-    PAN_RANGE: [1, -1],
+    PAN_RANGE: [-1, 1],
     getPlanetSoundPan: function (val) {
-        return this.convertRange(val, this.X_RANGE, this.PAN_RANGE)
+        if (this.X_RANGE == undefined) {
+            if (this.CANVAS_RECT != undefined) {
+                this.X_RANGE = [0, this.CANVAS_RECT.width];
+            } else {
+                return false
+            }
+        }
+        return this.convertRange(val, this.X_RANGE, this.PAN_RANGE);
     },
     
-    getPlanetSoundFrequency: function (val) {
+    /*getPlanetSoundFrequency: function (val) {
         return this.pixelToFreq(val);
     },
     getPlanetSoundVolume: function (val) {
         return this.velocitytToDb(val - 50);
-    },
+    },*/
     VELOCITY_RANGE: [0, 800],
-    DB_RANGE: [-100, -99],
+    DB_RANGE: [-100, 10],
     velocitytToDb: function (val) {
         var newVol = this.convertRange(val, this.VELOCITY_RANGE, this.DB_RANGE);
         //failsafe so we don't blow out speakers
         if (newVol > this.DB_RANGE[1]) return this.DB_RANGE[1];
         return newVol;
     },
+    /*
     PIXEL_RANGE: [-100, 100],
     FREQUENCY_RANGE: [4, 440],
     pixelToFreq: function (val) {
@@ -962,7 +971,9 @@ function getColor(colorNum) {
 }
 
 var sim = new simulation();
-sim.init(systems, scales);
+function initSystems() {
+    sim.init(systems, scales);
+}
 
 function onFrame(event) {
     sim.onFrame(event);
@@ -979,3 +990,4 @@ function restartAll() {
 };
 document.getElementById("stopButton").onclick = stopAll;
 
+sim.init(systems,scales)

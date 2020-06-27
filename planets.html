@@ -3,7 +3,10 @@
 <html>
 <head>
     <title>Planets</title>
-    <link rel="stylesheet" href="fabric.css" />
+
+    <link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-js/1.4.0/css/fabric.min.css" />
+    <link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-js/1.4.0/css/fabric.components.min.css" />
+    <script src="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-js/1.4.0/js/fabric.min.js"></script>
 
     <script>var exports = {};</script>
     <script src="./paper.js" type="text/javascript"></script>
@@ -13,47 +16,120 @@
     <script src="https://cdn.jsdelivr.net/npm/webmidi"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tonaljs/tonal/browser/tonal.min.js"></script>
     <script src="./dist/gridLine.js"></script>
-    <script src="./dist/planets.js"
-            type="text/paperscript"
-            charset="utf-8"
-            canvas="canvas"></script>
-
     <style>
         body {
             background-color: #333;
             font-family: sans-serif;
-            color: white;
+            color:#333;
+        }
+        #openButton {
+            display: inline-block;
+            margin: 8px 4px;
+            padding-top: 5px;
+            position:absolute;
+            top:12px;
+            right:12px;
         }
     </style>
 
 </head>
 
-<body>
-    <h1>Planet Tones</h1>
-    <div id="control_container">
-        Configuration:
-        <select id="system"></select> <br />
-        
-        Horizontal Scale: <select id="scale_h"></select>
-        Vertical Scale: <select id="scale_v"></select>
-        Show Notes of Scale: <input type="checkbox" id="showNotes" /><br />
+<body class="ms-Fabric">
+    <div class="ms-PanelExample" style="position:relative">
+        <button class="ms-Panel-openButton ms-PanelAction-open" id="openButton">
+            <i class="ms-Panel-openIcon ms-font-xl ms-Icon ms-Icon--Settings ms-fontColor-gray40"></i>
+        </button>
+        <div id="control_container" class="ms-Panel ms-Panel ms-bgColor-gray10">
+            <button class="ms-Panel-closeButton ms-PanelAction-close">
+                <i class="ms-Panel-closeIcon ms-Icon ms-Icon--Cancel"></i>
+            </button>
+            <div class="ms-Panel-contentInner">
+                <div class="ms-fontWeight-bold ms-fontSize-64">Planet Tones</div> 
+                <p class="ms-Panel-headerText">Settings</p>
 
-        GridSize: <select id="gridSize">
-            <option value="10">10</option>
-            <option value="12">12</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="200">200</option>
-        </select>
-        <br />
-        Midi Ouput: <select id="midiOutput"></select>
-        </p>
-        <button id="stopButton">Stop All</button>
+                <div class="ms-Dropdown" id="systemDropdown" tabindex="0">
+                    <label class="ms-Label">Planet Configuration:</label>
+                    <i class="ms-Dropdown-caretDown ms-Icon ms-Icon--ChevronDown"></i>
+                    <select id="system" class="ms-Dropdown-select">
+                    </select>
+                </div>
+                <div class="ms-Dropdown ms-fontColor-themePrimary" id="h-scale-dropdown" tabindex="1">
+                    <label class="ms-Label">Horizontal Scale: </label>
+                    <i class="ms-Dropdown-caretDown ms-Icon ms-Icon--ChevronDown"></i>
+                    <select class="ms-Dropdown-select" id="scale_h">
+                    </select>
+                </div>
+                <div class="ms-Dropdown" id="v-scale-dropdown" tabindex="2">
+                    <label class="ms-Label">Vertical Scale:</label>
+                    <i class="ms-Dropdown-caretDown ms-Icon ms-Icon--ChevronDown"></i>
+                    <select id="scale_v" class="ms-Dropdown-select">
+
+                    </select>
+                </div>
+                <div class="ms-Toggle">
+                    <span class="ms-Toggle-description">Show Notes in scale</span>
+                    <input type="checkbox" id="showNotes" class="ms-Toggle-input" />
+                    <label for="showNotes" class="ms-Toggle-field" tabindex="0">
+                        <span class="ms-Label ms-Label--off">Off</span>
+                        <span class="ms-Label ms-Label--on">On</span>
+                    </label>
+                </div>
+                <div class="ms-Dropdown" id="grid-size-dropdown">
+                    <label class="ms-Label">GridSize:</label>
+                    <i class="ms-Dropdown-caretDown ms-Icon ms-Icon--ChevronDown"></i>
+                    <select id="gridSize" class="ms-Dropdown-select">
+                        <!--<option>Set the size of the grid;hellip;</option>-->
+                        <option value="10">10</option>
+                        <option value="12">12</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                    </select>
+                </div>
+
+                <div class="ms-Dropdown" id="audio-out-dropdown" tabindex="5">
+                    <label class="ms-Label">Midi Ouput:</label>
+                    <i class="ms-Dropdown-caretDown ms-Icon ms-Icon--ChevronDown"></i>
+                    <select id="midiOutput" class="ms-Dropdown-select">
+                    </select>
+                </div>
+                <button class="ms-Button" id="stopButton"><span class="ms-Button-label">Stop All</span></button>
+            </div>
+        </div>
     </div>
-    <div id="menu_container"></div>
+
+
 
 
     <canvas id="canvas" resize></canvas>
+
+    <script type="text/javascript">
+        var CheckBoxElements = document.querySelectorAll(".ms-CheckBox");
+        for (var i = 0; i < CheckBoxElements.length; i++) {
+            new fabric['CheckBox'](CheckBoxElements[i]);
+        }
+
+        var PanelExamples = document.getElementsByClassName("ms-PanelExample");
+        for (var i = 0; i < PanelExamples.length; i++) {
+            (function () {
+                var PanelExampleButton = PanelExamples[i].querySelector(".ms-Panel-openButton");
+                var PanelExamplePanel = PanelExamples[i].querySelector(".ms-Panel");
+                PanelExampleButton.addEventListener("click", function (i) {
+                    new fabric['Panel'](PanelExamplePanel);
+                });
+            }());
+        }
+
+        var ToggleElements = document.querySelectorAll(".ms-Toggle");
+        for (var i = 0; i < ToggleElements.length; i++) {
+            new fabric['Toggle'](ToggleElements[i]);
+        }
+    </script>
+
+    <script src="./dist/planets.js"
+            type="text/paperscript"
+            charset="utf-8"
+            canvas="canvas"></script>
 </body>
 </html>
