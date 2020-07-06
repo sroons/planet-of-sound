@@ -26,6 +26,8 @@ simulation.prototype = {
     midiRange: [-1, 4],
     toneRange: [0, 6],
     title: "Planet Tones",
+    randomizeOctaves: false,
+    playDrones: true,
     init: function (systems, scales) {
         var self = this;
         this.midiInterface = new MidiInterface(function (msg) {
@@ -92,7 +94,7 @@ simulation.prototype = {
             var xrange = [0, this.CANVAS_RECT.width];
             var pan = this.convertRange(newX, xrange, [-1, 1]);
             line.string = this.toneInterface.makeString("V");
-            line.panner = this.toneInterface.makeStringPanner();
+            line.panner = this.toneInterface.makeStringPanner(pan);
             this.GRID.VERTICALS[x] = line;
             x++;
         } while (this.GRIDSIZE * x < this.CANVAS_RECT.width);
@@ -121,7 +123,7 @@ simulation.prototype = {
                 line.text.justification = "center";
             }
             line.string = this.toneInterface.makeString("H");
-            line.panner = this.toneInterface.makeStringPanner();
+            line.panner = this.toneInterface.makeStringPanner(0.5);
             this.GRID.HORIZONTALS[y] = line;
             y++;
         } while (this.GRIDSIZE * y < this.CANVAS_RECT.height);
@@ -133,9 +135,14 @@ simulation.prototype = {
         }
         ;
         var scale = this.scaleToPlay[horizOrVert];
-        //var octave = Math.floor(lineNum / scale.length);
         var numGridLines = (horizOrVert == "h") ? this.CANVAS_RECT.height / this.GRIDSIZE : this.CANVAS_RECT.width / this.GRIDSIZE;
-        var octave = Math.floor(this.convertRange(lineNum, [0, numGridLines], [0, 8]));
+        var octave;
+        if (this.randomizeOctaves == true) {
+            octave = Math.floor(Math.random() * 9);
+        }
+        else {
+            octave = Math.floor(this.convertRange(lineNum, [0, numGridLines], [0, 8]));
+        }
         var pitch = scale[lineNum % scale.length] + "" + octave;
         return pitch;
     },
@@ -178,9 +185,18 @@ simulation.prototype = {
         this.showNotesCheckbox.addEventListener('click', function () {
             self.setNotesVisible();
         }, false);
+        this.randomizeOctavesCheckbox = document.getElementById("randomizeOctaves");
+        this.randomizeOctavesCheckbox.addEventListener('click', function () {
+            self.setRandomizeOctaves();
+        });
     },
     setNotesVisible: function () {
         this.showNotes = this.showNotesCheckbox.checked;
+        this.clearGrid();
+        this.initializeGrid();
+    },
+    setRandomizeOctaves: function () {
+        this.randomizeOctaves = this.randomizeOctavesCheckbox.checked;
         this.clearGrid();
         this.initializeGrid();
     },
@@ -224,6 +240,11 @@ simulation.prototype = {
     initializeScale: function (whichScale) {
         var scaleSelect = whichScale + "_scaleSelect";
         this.scaleToPlay[whichScale] = this.scales[this[scaleSelect].options[this[scaleSelect].selectedIndex].value];
+        this.drones = [this.scaleToPlay[whichScale][0], this.scaleToPlay[whichScale][2]];
+        if (this.playDrones == true) {
+            this.midiInterface.playDrone(this.drones[0], 3);
+            this.midiInterface.playDrone(this.drones[1], 4);
+        }
         this.clearGrid();
         this.initializeGrid();
     },
@@ -424,7 +445,7 @@ simulation.prototype = {
     //note -- for web audio every string should have its own synth
     makeToneNote: function (gridline, planet, whichVelocity, horizOrVert) {
         var xrange = [0, this.CANVAS_RECT.width];
-        var pan = this.getPlanetSoundPan(this.paperCoordinates(planet.position).x);
+        var pan = (horizOrVert == "H" ? this.getPlanetSoundPan(this.paperCoordinates(planet.position).x) : null);
         var planetVelocity = Math.abs(Math.floor(planet.velocity[whichVelocity]));
         ;
         //var velocity = this.convertRange(planetVelocity, [10, 500], [50, 127]);

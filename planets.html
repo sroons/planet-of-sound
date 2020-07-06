@@ -44,7 +44,7 @@
                 <i class="ms-Panel-closeIcon ms-Icon ms-Icon--Cancel"></i>
             </button>
             <div class="ms-Panel-contentInner">
-                <div class="ms-fontWeight-bold ms-fontSize-64">Planet Tones</div> 
+                <div class="ms-fontWeight-bold ms-fontSize-64">Planet Tones</div>
                 <p class="ms-Panel-headerText">Settings</p>
 
                 <div class="ms-Dropdown" id="systemDropdown" tabindex="0">
@@ -63,13 +63,20 @@
                     <label class="ms-Label">Vertical Scale:</label>
                     <i class="ms-Dropdown-caretDown ms-Icon ms-Icon--ChevronDown"></i>
                     <select id="scale_v" class="ms-Dropdown-select">
-
                     </select>
                 </div>
                 <div class="ms-Toggle">
-                    <span class="ms-Toggle-description">Show Notes in scale</span>
+                    <span class="ms-Toggle-description">Show Notes in scale:</span>
                     <input type="checkbox" id="showNotes" class="ms-Toggle-input" />
                     <label for="showNotes" class="ms-Toggle-field" tabindex="0">
+                        <span class="ms-Label ms-Label--off">Off</span>
+                        <span class="ms-Label ms-Label--on">On</span>
+                    </label>
+                </div>
+                <div class="ms-Toggle">
+                    <span class="ms-Toggle-description">Randomize Octaves:</span>
+                    <input type="checkbox" id="randomizeOctaves" class="ms-Toggle-input" />
+                    <label for="randomizeOctaves" class="ms-Toggle-field" tabindex="0">
                         <span class="ms-Label ms-Label--off">Off</span>
                         <span class="ms-Label ms-Label--on">On</span>
                     </label>

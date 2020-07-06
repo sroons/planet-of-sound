@@ -93,14 +93,15 @@ var ToneInterface = /** @class */ (function () {
         var newSynth = Object.assign(Object.create(Object.getPrototypeOf(synth)), synth);
         return newSynth;
     };
-    ToneInterface.prototype.makeStringPanner = function () {
-        return new Tone.PanVol();
+    ToneInterface.prototype.makeStringPanner = function (pan) {
+        return new Tone.PanVol(pan);
     };
     ToneInterface.prototype.playString = function (line, pitch, volume, planetMass, pan) {
         var string = line.string;
         var panner = line.panner;
         panner.volume = volume;
-        panner.pan = pan;
+        if (pan != null)
+            panner.pan = pan;
         string.connect(panner).toMaster();
         string.triggerAttackRelease(pitch, 0.1);
     };

@@ -39,7 +39,12 @@ interface MidiNote {
 
      playNote(pitch: string, velocity: number, duration: number, channel:number) {
          if (this.enabled && this.isPlaying) WebMidi.outputs[this.outputDevice].playNote(pitch, channel, { duration: duration, velocity: velocity });
-    };
+     };
+
+     playDrone(pitch: string, channel: number) {
+         var noteName = pitch + "0";
+         if (this.enabled && this.isPlaying) WebMidi.outputs[this.outputDevice].playNote(noteName, channel, { duration: 10000 });
+     }
 
      stopAll() {
          this.isPlaying = false;

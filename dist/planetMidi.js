@@ -28,6 +28,11 @@ var MidiInterface = /** @class */ (function () {
             WebMidi.outputs[this.outputDevice].playNote(pitch, channel, { duration: duration, velocity: velocity });
     };
     ;
+    MidiInterface.prototype.playDrone = function (pitch, channel) {
+        var noteName = pitch + "0";
+        if (this.enabled && this.isPlaying)
+            WebMidi.outputs[this.outputDevice].playNote(noteName, channel, { duration: 10000 });
+    };
     MidiInterface.prototype.stopAll = function () {
         this.isPlaying = false;
         WebMidi.outputs[this.outputDevice].sendStop();

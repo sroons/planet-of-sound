@@ -109,15 +109,15 @@ class ToneInterface {
         return newSynth;
     }
 
-    makeStringPanner() {
-        return new Tone.PanVol();
+    makeStringPanner(pan) {
+        return new Tone.PanVol(pan);
     }
 
     playString(line: object, pitch: number, volume: number, planetMass:number, pan:number) {
         var string = line.string;
         var panner = line.panner;
         panner.volume = volume;
-        panner.pan = pan;
+        if (pan != null)panner.pan = pan;
         string.connect(panner).toMaster();
         string.triggerAttackRelease(pitch, 0.1);
     }

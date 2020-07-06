@@ -27,7 +27,9 @@ simulation.prototype = {
     gridSizeSelect: null,
     midiRange:[-1,4],
     toneRange: [0, 6],
-    title:"Planet Tones",
+    title: "Planet Tones",
+    randomizeOctaves: false,
+    playDrones: true,
 
     init: function (systems, scales) {
         var self = this;
@@ -105,7 +107,7 @@ simulation.prototype = {
             var xrange = [0, this.CANVAS_RECT.width];
             var pan = this.convertRange(newX, xrange, [-1, 1]);
             line.string = this.toneInterface.makeString("V");
-            line.panner = this.toneInterface.makeStringPanner();
+            line.panner = this.toneInterface.makeStringPanner(pan);
             this.GRID.VERTICALS[x] = line;
             x++;
         }
@@ -140,7 +142,7 @@ simulation.prototype = {
             }
 
             line.string = this.toneInterface.makeString("H");
-            line.panner = this.toneInterface.makeStringPanner();
+            line.panner = this.toneInterface.makeStringPanner(0.5);
             this.GRID.HORIZONTALS[y] = line;
             y++;
         }
@@ -153,10 +155,15 @@ simulation.prototype = {
             this.scaleToPlay.v = this.scales[this.v_scaleSelect.options[this.v_scaleSelect.selectedIndex].value];
         };
         var scale = this.scaleToPlay[horizOrVert];
-        //var octave = Math.floor(lineNum / scale.length);
 
         var numGridLines = (horizOrVert == "h") ? this.CANVAS_RECT.height / this.GRIDSIZE : this.CANVAS_RECT.width / this.GRIDSIZE;
-        var octave = Math.floor(this.convertRange(lineNum, [0, numGridLines], [0, 8]));
+        var octave;
+        
+        if (this.randomizeOctaves == true) {
+            octave = Math.floor(Math.random() * 9);
+        } else {
+            octave = Math.floor(this.convertRange(lineNum, [0, numGridLines], [0, 8]));
+        }
         var pitch = scale[lineNum % scale.length] + "" + octave;
         return pitch
     },
@@ -204,10 +211,21 @@ simulation.prototype = {
             self.setNotesVisible();
         }, false);
 
+        this.randomizeOctavesCheckbox = document.getElementById("randomizeOctaves");
+        this.randomizeOctavesCheckbox.addEventListener('click', function () {
+            self.setRandomizeOctaves();
+        })
+
     },
 
     setNotesVisible: function () {
         this.showNotes = this.showNotesCheckbox.checked;
+        this.clearGrid();
+        this.initializeGrid();
+    },
+
+    setRandomizeOctaves() {
+        this.randomizeOctaves = this.randomizeOctavesCheckbox.checked;
         this.clearGrid();
         this.initializeGrid();
     },
@@ -253,6 +271,11 @@ simulation.prototype = {
     initializeScale: function (whichScale) {
         var scaleSelect = whichScale + "_scaleSelect";
         this.scaleToPlay[whichScale] = this.scales[this[scaleSelect].options[this[scaleSelect].selectedIndex].value];
+        this.drones = [this.scaleToPlay[whichScale][0], this.scaleToPlay[whichScale][2]];
+        if (this.playDrones == true) {
+            this.midiInterface.playDrone(this.drones[0], 3);
+            this.midiInterface.playDrone(this.drones[1], 4);
+        }
         this.clearGrid();
         this.initializeGrid();
     },
@@ -459,7 +482,7 @@ simulation.prototype = {
     //note -- for web audio every string should have its own synth
     makeToneNote: function (gridline: object, planet: object, whichVelocity: string, horizOrVert: string) {
         var xrange = [0, this.CANVAS_RECT.width];
-        var pan = this.getPlanetSoundPan(this.paperCoordinates(planet.position).x);
+        var pan = (horizOrVert == "H" ? this.getPlanetSoundPan(this.paperCoordinates(planet.position).x) : null);
         var planetVelocity = Math.abs(Math.floor(planet.velocity[whichVelocity]));;
         //var velocity = this.convertRange(planetVelocity, [10, 500], [50, 127]);
         var volume = this.velocitytToDb(planetVelocity);
@@ -922,34 +945,6 @@ var systems = {
 var scales = {
     test_scale: ["C", "C", "C", "C"],
     c_major: Tonal.Scale.get("C major").notes,
-    /*c_major_bebop: Tonal.Scale.get("C bebop").notes,
-    c_major_pentatonic: Tonal.Scale.get("C pentatonic").notes,
-    c_minor: Tonal.Scale.get("C minor").notes,
-    d_major: Tonal.Scale.get("D major").notes,
-    d_major_bebop: Tonal.Scale.get("D bebop").notes,
-    d_major_pentatonic: Tonal.Scale.get("D pentatonic").notes,
-    d_minor: Tonal.Scale.get("D minor").notes,
-    e_major: Tonal.Scale.get("E major").notes,
-    e_major_bebop: Tonal.Scale.get("E bebop").notes,
-    e_major_pentatonic: Tonal.Scale.get("E pentatonic").notes,
-    e_minor: Tonal.Scale.get("E minor").notes,
-    f_major: Tonal.Scale.get("F major").notes,
-    f_major_bebop: Tonal.Scale.get("F bebop").notes,
-    f_major_pentatonic: Tonal.Scale.get("F pentatonic").notes,
-    f_minor: Tonal.Scale.get("F minor").notes,
-    g_major: Tonal.Scale.get("G major").notes,
-    g_major_bebop: Tonal.Scale.get("G bebop").notes,
-    g_major_pentatonic: Tonal.Scale.get("G pentatonic").notes,
-    g_minor: Tonal.Scale.get("G minor").notes,
-    a_major: Tonal.Scale.get("A major").notes,
-    a_major_bebop: Tonal.Scale.get("A bebop").notes,
-    a_major_pentatonic: Tonal.Scale.get("A pentatonic").notes,
-    a_minor: Tonal.Scale.get("A minor").notes,
-    b_major: Tonal.Scale.get("B major").notes,
-    b_major_bebop: Tonal.Scale.get("B bebop").notes,
-    b_major_pentatonic: Tonal.Scale.get("B pentatonic").notes,
-    b_minor: Tonal.Scale.get("B minor").notes,
-    chromatic: ["C", "C#", "D", "D#", "E", "F", "G", "G#", "A", "A#", "B"]*/
 };
 
 function getScales() {
