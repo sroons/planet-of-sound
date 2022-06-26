@@ -5,9 +5,11 @@
 
 ## TODO:
 * refactor to use fluent instead of fabric
+    * might mean I need to learn/use webpack in order to support import statement in typescript
 * perf analysis
 * web audio is wonky
 * if possible, plucked animation
+
 * multichannel midi 
     * 2 channel mode (horizontal and vertical each get a channel)
     * each body gets a channel
