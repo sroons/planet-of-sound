@@ -132,6 +132,12 @@
         for (var i = 0; i < ToggleElements.length; i++) {
             new fabric['Toggle'](ToggleElements[i]);
         }
+
+        var dropdowns = document.getElementsByClassName('ms-Dropdown');
+        for(var i = 0;i < dropdowns.length; i++){
+            console.log(dropdowns[i]);
+            dropdowns[i].style.height="400px"
+        }
     </script>
 
     <script src="./dist/planets.js"
