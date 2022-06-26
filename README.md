@@ -3,7 +3,7 @@
 
 3Body animation uses code developed and shared by jbochi(http://jbochi.github.io/planets/).
 
-##TODO:
+## TODO:
 * refactor to use fluent instead of fabric
 * perf analysis
 * web audio is wonky
