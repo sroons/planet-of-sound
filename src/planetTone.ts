@@ -12,8 +12,10 @@ class ToneInterface {
     synths: object;
     panner: Tone.PanVol;
     reverb: Tone.Reverb;
+    masterVolume: Tone.Volume;
 
     constructor() {
+        this.masterVolume = new Tone.Volume(-10).toMaster();
         this.synths = new Object();
         this.synths.H = new Tone.DuoSynth({
             vibratoAmount: 0.5,
@@ -110,15 +112,21 @@ class ToneInterface {
     }
 
     makeStringPanner(pan) {
-        return new Tone.PanVol(pan);
+        var panner = new Tone.PanVol(pan);
+        panner.connect(this.masterVolume);
+        return panner;
+    }
+
+    setVolume(db: number) {
+        this.masterVolume.volume.value = db;
     }
 
     playString(line: object, pitch: number, volume: number, planetMass:number, pan:number) {
         var string = line.string;
         var panner = line.panner;
-        panner.volume = volume;
-        if (pan != null)panner.pan = pan;
-        string.connect(panner).toMaster();
+        panner.volume.value = volume;
+        if (pan != null) panner.pan.value = pan;
+        string.connect(panner);
         string.triggerAttackRelease(pitch, 0.1);
     }
 }

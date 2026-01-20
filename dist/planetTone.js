@@ -1,12 +1,13 @@
 var ToneInterface = /** @class */ (function () {
     function ToneInterface() {
+        this.masterVolume = new Tone.Volume(-20).toMaster();
         this.synths = new Object();
         this.synths.H = new Tone.DuoSynth({
             vibratoAmount: 0.5,
             vibratoRate: 5,
             harmonicity: 1.5,
             voice0: {
-                volume: -10,
+                volume: 0,
                 portamento: 0,
                 oscillator: {
                     type: "sine"
@@ -25,7 +26,7 @@ var ToneInterface = /** @class */ (function () {
                 }
             },
             voice1: {
-                volume: -10,
+                volume: 0,
                 portamento: 0,
                 oscillator: {
                     type: "square4"
@@ -49,7 +50,7 @@ var ToneInterface = /** @class */ (function () {
             vibratoRate: 5,
             harmonicity: 3,
             voice0: {
-                volume: -10,
+                volume: 0,
                 portamento: 0,
                 oscillator: {
                     type: "sine4"
@@ -68,7 +69,7 @@ var ToneInterface = /** @class */ (function () {
                 }
             },
             voice1: {
-                volume: -10,
+                volume: 0,
                 portamento: 0,
                 oscillator: {
                     type: "square2"
@@ -94,15 +95,23 @@ var ToneInterface = /** @class */ (function () {
         return newSynth;
     };
     ToneInterface.prototype.makeStringPanner = function (pan) {
-        return new Tone.PanVol(pan);
+        var panner = new Tone.PanVol(pan);
+        panner.connect(this.masterVolume);
+        return panner;
+    };
+    ToneInterface.prototype.setVolume = function (db) {
+        this.masterVolume.volume.value = db;
+    };
+    ToneInterface.prototype.setMute = function (muted) {
+        this.masterVolume.mute = muted;
     };
     ToneInterface.prototype.playString = function (line, pitch, volume, planetMass, pan) {
         var string = line.string;
         var panner = line.panner;
-        panner.volume = volume;
+        panner.volume.value = volume;
         if (pan != null)
-            panner.pan = pan;
-        string.connect(panner).toMaster();
+            panner.pan.value = pan;
+        string.connect(panner);
         string.triggerAttackRelease(pitch, 0.1);
     };
     return ToneInterface;

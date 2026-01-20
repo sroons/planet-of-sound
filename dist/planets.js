@@ -129,11 +129,9 @@ simulation.prototype = {
         } while (this.GRIDSIZE * y < this.CANVAS_RECT.height);
     },
     getPitch: function (lineNum, horizOrVert, midiOrAudio) {
-        if (this.scaleToPlay.h == undefined) {
-            this.scaleToPlay.h = this.scales[this.h_scaleSelect.options[this.h_scaleSelect.selectedIndex].value];
-            this.scaleToPlay.v = this.scales[this.v_scaleSelect.options[this.v_scaleSelect.selectedIndex].value];
-        }
-        ;
+        // Always read fresh from dropdowns
+        this.scaleToPlay.h = this.scales[this.h_scaleSelect.options[this.h_scaleSelect.selectedIndex].value];
+        this.scaleToPlay.v = this.scales[this.v_scaleSelect.options[this.v_scaleSelect.selectedIndex].value];
         var scale = this.scaleToPlay[horizOrVert];
         var numGridLines = (horizOrVert == "h") ? this.CANVAS_RECT.height / this.GRIDSIZE : this.CANVAS_RECT.width / this.GRIDSIZE;
         var octave;
@@ -162,18 +160,20 @@ simulation.prototype = {
             self.initializeScale("h");
         }, false);
         for (var scale in this.scales) {
-            this.h_scaleSelect.options[this.h_scaleSelect.options.length] = new Option(scale, scale);
+            var opt = new Option(scale, scale);
+            if (scale === "c-major") opt.selected = true;
+            this.h_scaleSelect.options[this.h_scaleSelect.options.length] = opt;
         }
-        ;
         var dropdown = new fabric['Dropdown'](document.getElementById("h-scale-dropdown"));
         this.v_scaleSelect = document.getElementById("scale_v");
         this.v_scaleSelect.addEventListener('change', function () {
             self.initializeScale("v");
         }, false);
         for (var scale in this.scales) {
-            this.v_scaleSelect.options[this.v_scaleSelect.options.length] = new Option(scale, scale);
+            var opt = new Option(scale, scale);
+            if (scale === "c-major") opt.selected = true;
+            this.v_scaleSelect.options[this.v_scaleSelect.options.length] = opt;
         }
-        ;
         var dropdown = new fabric['Dropdown'](document.getElementById("v-scale-dropdown"));
         this.gridSizeSelect = document.getElementById("gridSize");
         this.gridSizeSelect.addEventListener('change', function () {
@@ -241,7 +241,7 @@ simulation.prototype = {
         var scaleSelect = whichScale + "_scaleSelect";
         this.scaleToPlay[whichScale] = this.scales[this[scaleSelect].options[this[scaleSelect].selectedIndex].value];
         this.drones = [this.scaleToPlay[whichScale][0], this.scaleToPlay[whichScale][2]];
-        if (this.playDrones == true) {
+        if (this.playDrones == true && this.midiInterface && this.midiInterface.output) {
             this.midiInterface.playDrone(this.drones[0], 3);
             this.midiInterface.playDrone(this.drones[1], 4);
         }
@@ -426,8 +426,8 @@ simulation.prototype = {
         return lineNum;
     },
     makeNote: function (gridline, planet, whichVelocity, horizOrVert) {
-        if (this.midiSelect.value == "webaudio") {
-            //user has selected web audio
+        if (!this.midiSelect || this.midiSelect.value == "webaudio") {
+            //user has selected web audio (or MIDI not yet initialized)
             this.makeToneNote(gridline, planet, whichVelocity, horizOrVert);
         }
         else {
@@ -472,7 +472,7 @@ simulation.prototype = {
         return this.velocitytToDb(val - 50);
     },*/
     VELOCITY_RANGE: [0, 800],
-    DB_RANGE: [-100, 10],
+    DB_RANGE: [-20, 0],
     velocitytToDb: function (val) {
         var newVol = this.convertRange(val, this.VELOCITY_RANGE, this.DB_RANGE);
         //failsafe so we don't blow out speakers
@@ -889,17 +889,18 @@ var systems = {
     ying_yang_2a: three_body(0.416822, 0.330333),
     ying_yang_2b: three_body(0.417343, 0.313100)
 };
-var scales = {
-    test_scale: ["C", "C", "C", "C"],
-    c_major: Tonal.Scale.get("C major").notes,
-};
+var scales = {};
 function getScales() {
+    // Add c-major first so it's the default
+    scales["c-major"] = Tonal.Scale.get("C major").notes;
     var allScales = Tonal.Scale.names();
     var notes = null;
     for (var i = 0; i < allScales.length; i++) {
         notes = Tonal.Scale.get("C " + allScales[i]).notes;
         scaleName = "c-" + allScales[i].replace(/\s+/g, '-').toLowerCase();
-        scales[scaleName] = notes;
+        if (scaleName !== "c-major") {
+            scales[scaleName] = notes;
+        }
     }
 }
 getScales();
@@ -910,6 +911,7 @@ function getColor(colorNum) {
     return clr;
 }
 var sim = new simulation();
+window.sim = sim; // Expose to global scope for volume controls
 function initSystems() {
     sim.init(systems, scales);
 }

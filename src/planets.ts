@@ -186,8 +186,10 @@ simulation.prototype = {
             self.initializeScale("h");
         }, false);
         for (var scale in this.scales) {
-            this.h_scaleSelect.options[this.h_scaleSelect.options.length] = new Option(scale, scale);
-        };
+            var opt = new Option(scale, scale);
+            if (scale === "c-major") opt.selected = true;
+            this.h_scaleSelect.options[this.h_scaleSelect.options.length] = opt;
+        }
         var dropdown = new fabric['Dropdown'](document.getElementById("h-scale-dropdown"));
 
         this.v_scaleSelect = document.getElementById("scale_v");
@@ -195,8 +197,10 @@ simulation.prototype = {
             self.initializeScale("v");
         }, false);
         for (var scale in this.scales) {
-            this.v_scaleSelect.options[this.v_scaleSelect.options.length] = new Option(scale, scale);
-        };
+            var opt = new Option(scale, scale);
+            if (scale === "c-major") opt.selected = true;
+            this.v_scaleSelect.options[this.v_scaleSelect.options.length] = opt;
+        }
         var dropdown = new fabric['Dropdown'](document.getElementById("v-scale-dropdown"));
 
         this.gridSizeSelect = document.getElementById("gridSize");
@@ -272,7 +276,7 @@ simulation.prototype = {
         var scaleSelect = whichScale + "_scaleSelect";
         this.scaleToPlay[whichScale] = this.scales[this[scaleSelect].options[this[scaleSelect].selectedIndex].value];
         this.drones = [this.scaleToPlay[whichScale][0], this.scaleToPlay[whichScale][2]];
-        if (this.playDrones == true) {
+        if (this.playDrones == true && this.midiInterface && this.midiInterface.output) {
             this.midiInterface.playDrone(this.drones[0], 3);
             this.midiInterface.playDrone(this.drones[1], 4);
         }
@@ -462,8 +466,8 @@ simulation.prototype = {
         return lineNum;
     },
     makeNote: function (gridline: object, planet: object, whichVelocity: string, horizOrVert: string) {
-        if (this.midiSelect.value == "webaudio") {
-            //user has selected web audio
+        if (!this.midiSelect || this.midiSelect.value == "webaudio") {
+            //user has selected web audio (or MIDI not yet initialized)
             this.makeToneNote(gridline, planet, whichVelocity, horizOrVert);
         } else {
             this.makeMidiNote(gridline, planet, whichVelocity, horizOrVert);
@@ -942,18 +946,19 @@ var systems = {
     ying_yang_2b: three_body(0.417343, 0.313100)
 }
 
-var scales = {
-    test_scale: ["C", "C", "C", "C"],
-    c_major: Tonal.Scale.get("C major").notes,
-};
+var scales = {};
 
 function getScales() {
+    // Add c-major first so it's the default
+    scales["c-major"] = Tonal.Scale.get("C major").notes;
     var allScales = Tonal.Scale.names();
     var notes = null;
     for (var i = 0; i < allScales.length; i++) {
         notes = Tonal.Scale.get("C " + allScales[i]).notes
         scaleName = "c-" + allScales[i].replace(/\s+/g, '-').toLowerCase();
-        scales[scaleName] = notes;
+        if (scaleName !== "c-major") {
+            scales[scaleName] = notes;
+        }
     }
 }
 getScales();    
