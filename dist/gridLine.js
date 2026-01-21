@@ -7,7 +7,7 @@ var GridLine = /** @class */ (function () {
         this.height = height;
         this.midiNote = midiNote;
         this.webAudioNote = webAudioNote;
-        this.color = type == "horizontal" ? "#666" : "#bbb";
+        this.color = type == "horizontal" ? "#555" : "#666";
         this.plucked = false;
         this.type = type;
     }

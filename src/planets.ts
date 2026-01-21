@@ -513,7 +513,7 @@ simulation.prototype = {
         return this.velocitytToDb(val - 50);
     },*/
     VELOCITY_RANGE: [0, 800],
-    DB_RANGE: [-100, 10],
+    DB_RANGE: [-20, 0],
     velocitytToDb: function (val) {
         var newVol = this.convertRange(val, this.VELOCITY_RANGE, this.DB_RANGE);
         //failsafe so we don't blow out speakers
@@ -570,7 +570,7 @@ simulation.prototype = {
                 
             } else {
                 line.path.strokeColor = line.color;
-                line.path.opacity = 0.15;
+                line.path.opacity = 0.12;
             }
         }
         if (line.text != undefined) {
@@ -971,6 +971,7 @@ function getColor(colorNum) {
 }
 
 var sim = new simulation();
+window.sim = sim;
 function initSystems() {
     sim.init(systems, scales);
 }
@@ -989,5 +990,20 @@ function restartAll() {
     //isRunning = true;
 };
 document.getElementById("stopButton").onclick = stopAll;
+
+// Redraw grid on window resize or fullscreen change
+var resizeTimeout;
+window.addEventListener("resize", function() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(function() {
+        sim.resetGrid();
+    }, 250);
+});
+
+document.addEventListener("fullscreenchange", function() {
+    setTimeout(function() {
+        sim.resetGrid();
+    }, 100);
+});
 
 sim.init(systems,scales)

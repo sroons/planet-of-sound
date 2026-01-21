@@ -116,8 +116,23 @@
             align-items: center;
         }
         #muteButton .ms-Button-label {
-            width: 100%;
+            display: block;
+            width: 50px;
             text-align: center;
+        }
+        /* Tighter vertical spacing for panel controls */
+        .ms-Panel .ms-Dropdown {
+            margin-bottom: 8px;
+        }
+        .ms-Panel .ms-Toggle {
+            margin-bottom: 8px;
+        }
+        #grid-size-dropdown {
+            margin-bottom: 4px;
+        }
+        .ms-Panel div[style*="margin: 16px"] {
+            margin-top: 8px !important;
+            margin-bottom: 8px !important;
         }
     </style>
 
@@ -138,7 +153,6 @@
             </button>
             <div class="ms-Panel-contentInner">
                 <div class="ms-fontWeight-bold" style="font-size: 32px; text-transform: uppercase; letter-spacing: 2px;">Planet Tones</div>
-                <p class="ms-Panel-headerText">Settings</p>
 
                 <div class="ms-Dropdown" id="systemDropdown" tabindex="0">
                     <label class="ms-Label">Planet Configuration:</label>
@@ -188,7 +202,7 @@
                     </select>
                 </div>
 
-                <div style="margin: 16px 0;">
+                <div style="margin: 8px 0;">
                     <label class="ms-Label">Volume:</label>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <input type="range" id="volumeSlider" min="-60" max="10" value="-20" style="flex: 1;">

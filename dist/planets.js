@@ -129,9 +129,11 @@ simulation.prototype = {
         } while (this.GRIDSIZE * y < this.CANVAS_RECT.height);
     },
     getPitch: function (lineNum, horizOrVert, midiOrAudio) {
-        // Always read fresh from dropdowns
-        this.scaleToPlay.h = this.scales[this.h_scaleSelect.options[this.h_scaleSelect.selectedIndex].value];
-        this.scaleToPlay.v = this.scales[this.v_scaleSelect.options[this.v_scaleSelect.selectedIndex].value];
+        if (this.scaleToPlay.h == undefined) {
+            this.scaleToPlay.h = this.scales[this.h_scaleSelect.options[this.h_scaleSelect.selectedIndex].value];
+            this.scaleToPlay.v = this.scales[this.v_scaleSelect.options[this.v_scaleSelect.selectedIndex].value];
+        }
+        ;
         var scale = this.scaleToPlay[horizOrVert];
         var numGridLines = (horizOrVert == "h") ? this.CANVAS_RECT.height / this.GRIDSIZE : this.CANVAS_RECT.width / this.GRIDSIZE;
         var octave;
@@ -161,7 +163,8 @@ simulation.prototype = {
         }, false);
         for (var scale in this.scales) {
             var opt = new Option(scale, scale);
-            if (scale === "c-major") opt.selected = true;
+            if (scale === "c-major")
+                opt.selected = true;
             this.h_scaleSelect.options[this.h_scaleSelect.options.length] = opt;
         }
         var dropdown = new fabric['Dropdown'](document.getElementById("h-scale-dropdown"));
@@ -171,7 +174,8 @@ simulation.prototype = {
         }, false);
         for (var scale in this.scales) {
             var opt = new Option(scale, scale);
-            if (scale === "c-major") opt.selected = true;
+            if (scale === "c-major")
+                opt.selected = true;
             this.v_scaleSelect.options[this.v_scaleSelect.options.length] = opt;
         }
         var dropdown = new fabric['Dropdown'](document.getElementById("v-scale-dropdown"));
@@ -529,7 +533,7 @@ simulation.prototype = {
             }
             else {
                 line.path.strokeColor = line.color;
-                line.path.opacity = 0.15;
+                line.path.opacity = 0.12;
             }
         }
         if (line.text != undefined) {
@@ -911,7 +915,7 @@ function getColor(colorNum) {
     return clr;
 }
 var sim = new simulation();
-window.sim = sim; // Expose to global scope for volume controls
+window.sim = sim;
 function initSystems() {
     sim.init(systems, scales);
 }
@@ -928,4 +932,17 @@ function restartAll() {
 }
 ;
 document.getElementById("stopButton").onclick = stopAll;
+// Redraw grid on window resize or fullscreen change
+var resizeTimeout;
+window.addEventListener("resize", function () {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(function () {
+        sim.resetGrid();
+    }, 250);
+});
+document.addEventListener("fullscreenchange", function () {
+    setTimeout(function () {
+        sim.resetGrid();
+    }, 100);
+});
 sim.init(systems, scales);

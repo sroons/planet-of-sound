@@ -1,102 +1,78 @@
 var ToneInterface = /** @class */ (function () {
     function ToneInterface() {
-        this.masterVolume = new Tone.Volume(-20).toMaster();
+        this.masterVolume = new Tone.Volume(-10).toMaster();
+        this.reverb = new Tone.JCReverb({
+            roomSize: 0.9
+        });
+        this.reverb.wet.value = 0.3;
+        this.reverb.connect(this.masterVolume);
         this.synths = new Object();
-        this.synths.H = new Tone.DuoSynth({
-            vibratoAmount: 0.5,
-            vibratoRate: 5,
-            harmonicity: 1.5,
-            voice0: {
-                volume: 0,
-                portamento: 0,
-                oscillator: {
-                    type: "sine"
-                },
-                filterEnvelope: {
-                    attack: 0.01,
-                    decay: 0,
-                    sustain: 1,
-                    release: 0.5
-                },
-                envelope: {
-                    attack: 0.01,
-                    decay: 0,
-                    sustain: 1,
-                    release: 0.5
-                }
+        // Horizontal lines - metallic triangle sound
+        this.synths.H = new Tone.FMSynth({
+            harmonicity: 5.5,
+            modulationIndex: 20,
+            oscillator: { type: "triangle" },
+            envelope: {
+                attack: 0.001,
+                decay: 1.5,
+                sustain: 0,
+                release: 0.5
             },
-            voice1: {
-                volume: 0,
-                portamento: 0,
-                oscillator: {
-                    type: "square4"
-                },
-                filterEnvelope: {
-                    attack: 0.01,
-                    decay: 0,
-                    sustain: 1,
-                    release: 0.5
-                },
-                envelope: {
-                    attack: 0.01,
-                    decay: 0,
-                    sustain: 1,
-                    release: 0.5
-                }
+            modulation: { type: "square" },
+            modulationEnvelope: {
+                attack: 0.001,
+                decay: 0.5,
+                sustain: 0,
+                release: 0.3
             }
         });
-        this.synths.V = new Tone.DuoSynth({
-            vibratoAmount: 0.5,
-            vibratoRate: 5,
-            harmonicity: 3,
-            voice0: {
-                volume: 0,
-                portamento: 0,
-                oscillator: {
-                    type: "sine4"
-                },
-                filterEnvelope: {
-                    attack: 0.01,
-                    decay: 0,
-                    sustain: 1,
-                    release: 0.5
-                },
-                envelope: {
-                    attack: 0.01,
-                    decay: 0,
-                    sustain: 1,
-                    release: 0.5
-                }
+        // Vertical lines - vibraphone-like mallet sound
+        this.synths.V = new Tone.FMSynth({
+            harmonicity: 12,
+            modulationIndex: 3,
+            oscillator: { type: "sine" },
+            envelope: {
+                attack: 0.001,
+                decay: 0.3,
+                sustain: 0,
+                release: 0.15
             },
-            voice1: {
-                volume: 0,
-                portamento: 0,
-                oscillator: {
-                    type: "square2"
-                },
-                filterEnvelope: {
-                    attack: 0.01,
-                    decay: 0,
-                    sustain: 1,
-                    release: 0.5
-                },
-                envelope: {
-                    attack: 0.01,
-                    decay: 0,
-                    sustain: 1,
-                    release: 0.5
-                }
+            modulation: { type: "triangle" },
+            modulationEnvelope: {
+                attack: 0.001,
+                decay: 0.15,
+                sustain: 0,
+                release: 0.1
             }
         });
     }
     ToneInterface.prototype.makeString = function (horizOrVert) {
-        var synth = this.synths[horizOrVert];
-        var newSynth = Object.assign(Object.create(Object.getPrototypeOf(synth)), synth);
-        return newSynth;
+        if (horizOrVert === "H") {
+            // Metallic triangle sound
+            return new Tone.FMSynth({
+                harmonicity: 5.5,
+                modulationIndex: 20,
+                oscillator: { type: "triangle" },
+                envelope: { attack: 0.001, decay: 1.5, sustain: 0, release: 0.5 },
+                modulation: { type: "square" },
+                modulationEnvelope: { attack: 0.001, decay: 0.5, sustain: 0, release: 0.3 }
+            });
+        }
+        else {
+            // Vibraphone-like mallet sound
+            return new Tone.FMSynth({
+                harmonicity: 12,
+                modulationIndex: 3,
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.15 },
+                modulation: { type: "triangle" },
+                modulationEnvelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.1 }
+            });
+        }
     };
     ToneInterface.prototype.makeStringPanner = function (pan) {
         var panner = new Tone.PanVol(pan);
-        panner.connect(this.masterVolume);
+        panner.connect(this.reverb);
         return panner;
     };
     ToneInterface.prototype.setVolume = function (db) {
