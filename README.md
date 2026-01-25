@@ -99,6 +99,12 @@ planet-of-sound/
 
 Original 3-body animation code developed and shared by [jbochi](http://jbochi.github.io/planets/).
 
+This project is built with these excellent open source libraries:
+- [Tone.js](https://tonejs.github.io/) - Web Audio framework for synthesis and music
+- [Paper.js](http://paperjs.org/) - Vector graphics scripting framework
+- [Tonal](https://github.com/tonaljs/tonal) - Music theory library for scales and notes
+- [WebMidi.js](https://webmidijs.org/) - MIDI input/output for the browser
+
 ## License
 
 MIT License - feel free to use, modify, and distribute.
