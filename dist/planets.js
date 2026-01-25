@@ -432,20 +432,18 @@ simulation.prototype = {
     checkGridCrossingX: function (planet) {
         if (!planet.circle)
             return -1;
-        // Use cached radius or calculate once
-        if (!planet.cachedRadius) {
-            planet.cachedRadius = Math.floor(planet.circle.bounds.width / 2);
-        }
         // Calculate which grid line index this position corresponds to (O(1) instead of O(n))
-        var scaledX = planet.position.x * this.currentScale;
-        var lineIndex = Math.round(scaledX / this.GRIDSIZE_V);
+        // Use unscaled simulation coordinates - simX is in simulation space
+        var lineIndex = Math.round(planet.position.x / this.GRIDSIZE_V);
         // Find the line in our array (lines are indexed from -numLines to +numLines)
         var numLinesV = Math.ceil((this.CANVAS_RECT.width / 2) / this.GRIDSIZE_V) + 1;
         var arrayIndex = lineIndex + numLinesV;
         // Check bounds and if this is a new crossing
+        // Use a tolerance based on grid size to catch fast-moving planets
+        var tolerance = this.GRIDSIZE_V / 4;
         if (arrayIndex >= 0 && arrayIndex < this.GRID.VERTICALS.length) {
             var line = this.GRID.VERTICALS[arrayIndex];
-            if (line && Math.abs(scaledX - line.simX * this.currentScale) < 2) {
+            if (line && Math.abs(planet.position.x - line.simX) <= tolerance) {
                 if (arrayIndex != planet.lastCrossedLine_V) {
                     planet.lastCrossedLine_V = arrayIndex;
                     return arrayIndex;
@@ -458,15 +456,17 @@ simulation.prototype = {
         if (!planet.circle)
             return -1;
         // Calculate which grid line index this position corresponds to (O(1) instead of O(n))
-        var scaledY = planet.position.y * this.currentScale;
-        var lineIndex = Math.round(scaledY / this.GRIDSIZE_H);
+        // Use unscaled simulation coordinates - simY is in simulation space
+        var lineIndex = Math.round(planet.position.y / this.GRIDSIZE_H);
         // Find the line in our array (lines are indexed from -numLines to +numLines)
         var numLinesH = Math.ceil((this.CANVAS_RECT.height / 2) / this.GRIDSIZE_H) + 1;
         var arrayIndex = lineIndex + numLinesH;
         // Check bounds and if this is a new crossing
+        // Use a tolerance based on grid size to catch fast-moving planets
+        var tolerance = this.GRIDSIZE_H / 4;
         if (arrayIndex >= 0 && arrayIndex < this.GRID.HORIZONTALS.length) {
             var line = this.GRID.HORIZONTALS[arrayIndex];
-            if (line && Math.abs(scaledY - line.simY * this.currentScale) < 2) {
+            if (line && Math.abs(planet.position.y - line.simY) <= tolerance) {
                 if (arrayIndex != planet.lastCrossedLine_H) {
                     planet.lastCrossedLine_H = arrayIndex;
                     return arrayIndex;
