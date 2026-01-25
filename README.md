@@ -2,7 +2,7 @@
 
 An interactive web application that combines n-body orbital mechanics simulation with generative music. Planets orbiting in gravitational systems trigger musical notes when crossing grid lines, creating a unique sonification of orbital dynamics.
 
-[Watch Demo Video](demo.mp4)
+[Watch Demo Video](https://youtu.be/oT8z6MX4HhM)
 
 ## Features
 
