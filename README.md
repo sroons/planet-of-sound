@@ -2,7 +2,7 @@
 
 An interactive web application that combines n-body orbital mechanics simulation with generative music. Planets orbiting in gravitational systems trigger musical notes when crossing grid lines, creating a unique sonification of orbital dynamics.
 
-[Watch Demo Video](https://youtu.be/oT8z6MX4HhM)
+[Try it Live](https://sroons.github.io/planet-of-sound/planets.html) | [Watch Demo Video](https://youtu.be/oT8z6MX4HhM)
 
 ## Features
 
