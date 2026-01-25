@@ -32,6 +32,10 @@ simulation.prototype = {
     title: "Planet Tones",
     randomizeOctaves_h: false,
     randomizeOctaves_v: false,
+    baseOctave_h: 3,
+    baseOctave_v: 3,
+    octaveInput_h: null,
+    octaveInput_v: null,
     playDrones: true,
     autoZoom: false,
     autoZoomPadding: 0.15,
@@ -91,7 +95,7 @@ simulation.prototype = {
         this.octave = 0;
         for (var x = -numLinesV; x <= numLinesV; x++) {
             var simX = this.GRIDSIZE_V * x; // Simulation coordinate (0 = center)
-            var lineIndex = Math.abs(x) || 1; // Use 1 for center line pitch
+            var lineIndex = Math.abs(x); // Distance from center determines pitch
             var midiPitch = this.getPitch(lineIndex, "v", "midi");
             var tonePitch = this.getPitch(lineIndex, "v", "audio");
             var screenX = view.center.x - simX;
@@ -109,7 +113,7 @@ simulation.prototype = {
         this.octave = 0;
         for (var y = -numLinesH; y <= numLinesH; y++) {
             var simY = this.GRIDSIZE_H * y; // Simulation coordinate (0 = center)
-            var lineIndex = Math.abs(y) || 1;
+            var lineIndex = Math.abs(y); // Distance from center determines pitch
             var midiPitch = this.getPitch(lineIndex, "h", "midi");
             var tonePitch = this.getPitch(lineIndex, "h", "audio");
             var screenY = view.center.y - simY;
@@ -130,15 +134,15 @@ simulation.prototype = {
         }
         ;
         var scale = this.scaleToPlay[horizOrVert];
-        var gridSize = (horizOrVert == "h") ? this.GRIDSIZE_H : this.GRIDSIZE_V;
-        var numGridLines = (horizOrVert == "h") ? this.CANVAS_RECT.height / gridSize : this.CANVAS_RECT.width / gridSize;
         var randomize = (horizOrVert == "h") ? this.randomizeOctaves_h : this.randomizeOctaves_v;
+        var baseOctave = (horizOrVert == "h") ? this.baseOctave_h : this.baseOctave_v;
         var octave;
         if (randomize == true) {
             octave = Math.floor(Math.random() * 9);
         }
         else {
-            octave = Math.floor(this.convertRange(lineNum, [0, numGridLines], [0, 8]));
+            // Use base octave setting
+            octave = baseOctave;
         }
         var pitch = scale[lineNum % scale.length] + "" + octave;
         return pitch;
@@ -150,7 +154,10 @@ simulation.prototype = {
             self.initializePlanets();
         }, false);
         for (var system in this.systems) {
-            this.select.options[this.select.options.length] = new Option(system, system);
+            var opt = new Option(system, system);
+            if (system === "broucke_henon")
+                opt.selected = true;
+            this.select.options[this.select.options.length] = opt;
         }
         // Horizontal scale dropdown
         this.h_scaleSelect = document.getElementById("scale_h");
@@ -207,6 +214,15 @@ simulation.prototype = {
         this.randomizeOctavesCheckbox_v.addEventListener('change', function () {
             self.setRandomizeOctaves("v");
         });
+        // Octave spin inputs
+        this.octaveInput_h = document.getElementById("octave_h");
+        this.octaveInput_h.addEventListener('change', function () {
+            self.setOctave("h");
+        });
+        this.octaveInput_v = document.getElementById("octave_v");
+        this.octaveInput_v.addEventListener('change', function () {
+            self.setOctave("v");
+        });
     },
     populateToneOptions: function (selectElement, defaultPreset) {
         // Sound presets organized by category
@@ -261,6 +277,16 @@ simulation.prototype = {
         }
         else {
             this.randomizeOctaves_v = this.randomizeOctavesCheckbox_v.checked;
+        }
+        this.clearGrid();
+        this.initializeGrid();
+    },
+    setOctave: function (horizOrVert) {
+        if (horizOrVert === "h") {
+            this.baseOctave_h = parseInt(this.octaveInput_h.value) || 3;
+        }
+        else {
+            this.baseOctave_v = parseInt(this.octaveInput_v.value) || 3;
         }
         this.clearGrid();
         this.initializeGrid();
@@ -404,76 +430,90 @@ simulation.prototype = {
     updatePositions: function (positions) {
         for (var i in this.planets) {
             var planet = this.planets[i];
+            // Store previous position for crossing detection
+            planet.prevX = planet.position.x;
+            planet.prevY = planet.position.y;
             planet.position = positions[i];
             this.checkForMidiNote(planet);
         }
     },
     checkForMidiNote: function (planet) {
-        var gridlineCrossedX = this.checkGridCrossingX(planet);
-        if (gridlineCrossedX > -1) {
-            var gridline = this.GRID.VERTICALS[gridlineCrossedX];
-            //console.log("%cvertical gridline crossed :: " + gridlineCrossedX, "background:" + planet.color);
-            //color the line red
-            this.setLinePlucked(gridline, planet, gridlineCrossedX, "H");
-            //make a midi note from the line properties
-            this.makeNote(gridline, planet, "x", "H");
+        var crossedVerticals = this.getGridCrossingsX(planet);
+        for (var i = 0; i < crossedVerticals.length; i++) {
+            var arrayIndex = crossedVerticals[i];
+            var gridline = this.GRID.VERTICALS[arrayIndex];
+            if (gridline) {
+                this.setLinePlucked(gridline, planet, arrayIndex, "H");
+                this.makeNote(gridline, planet, "x", "H");
+            }
         }
-        var gridlineCrossedY = this.checkGridCrossingY(planet);
-        if (gridlineCrossedY > -1) {
-            var gridline = this.GRID.HORIZONTALS[gridlineCrossedY];
-            this.setLinePlucked(gridline, planet, gridlineCrossedY, "V");
-            //console.log("%chorizontal gridline crossed :: " + gridlineCrossedY, "background:" + planet.color);
-            //make a midinote from the line properties
-            this.makeNote(gridline, planet, "y", "V");
+        var crossedHorizontals = this.getGridCrossingsY(planet);
+        for (var i = 0; i < crossedHorizontals.length; i++) {
+            var arrayIndex = crossedHorizontals[i];
+            var gridline = this.GRID.HORIZONTALS[arrayIndex];
+            if (gridline) {
+                this.setLinePlucked(gridline, planet, arrayIndex, "V");
+                this.makeNote(gridline, planet, "y", "V");
+            }
         }
     },
     LASTX: 0,
     LASTY: 0,
-    checkGridCrossingX: function (planet) {
+    getGridCrossingsX: function (planet) {
+        var crossed = [];
         if (!planet.circle)
-            return -1;
-        // Calculate which grid line index this position corresponds to (O(1) instead of O(n))
-        // Use unscaled simulation coordinates - simX is in simulation space
-        var lineIndex = Math.round(planet.position.x / this.GRIDSIZE_V);
-        // Find the line in our array (lines are indexed from -numLines to +numLines)
+            return crossed;
+        var prevX = planet.prevX;
+        var currX = planet.position.x;
+        // First frame - no previous position yet
+        if (prevX === undefined)
+            return crossed;
+        // No movement
+        if (prevX === currX)
+            return crossed;
+        // Determine which grid lines we crossed
+        var minX = Math.min(prevX, currX);
+        var maxX = Math.max(prevX, currX);
+        // Find line indices for the range - a line at position L is crossed if minX < L <= maxX or minX <= L < maxX
+        var minLineIndex = Math.floor(minX / this.GRIDSIZE_V) + 1;
+        var maxLineIndex = Math.floor(maxX / this.GRIDSIZE_V);
         var numLinesV = Math.ceil((this.CANVAS_RECT.width / 2) / this.GRIDSIZE_V) + 1;
-        var arrayIndex = lineIndex + numLinesV;
-        // Check bounds and if this is a new crossing
-        // Use a tolerance based on grid size to catch fast-moving planets
-        var tolerance = this.GRIDSIZE_V / 4;
-        if (arrayIndex >= 0 && arrayIndex < this.GRID.VERTICALS.length) {
-            var line = this.GRID.VERTICALS[arrayIndex];
-            if (line && Math.abs(planet.position.x - line.simX) <= tolerance) {
-                if (arrayIndex != planet.lastCrossedLine_V) {
-                    planet.lastCrossedLine_V = arrayIndex;
-                    return arrayIndex;
-                }
+        // Collect all crossed lines
+        for (var lineIndex = minLineIndex; lineIndex <= maxLineIndex; lineIndex++) {
+            var arrayIndex = lineIndex + numLinesV;
+            if (arrayIndex >= 0 && arrayIndex < this.GRID.VERTICALS.length) {
+                crossed.push(arrayIndex);
             }
         }
-        return -1;
+        return crossed;
     },
-    checkGridCrossingY: function (planet) {
+    getGridCrossingsY: function (planet) {
+        var crossed = [];
         if (!planet.circle)
-            return -1;
-        // Calculate which grid line index this position corresponds to (O(1) instead of O(n))
-        // Use unscaled simulation coordinates - simY is in simulation space
-        var lineIndex = Math.round(planet.position.y / this.GRIDSIZE_H);
-        // Find the line in our array (lines are indexed from -numLines to +numLines)
+            return crossed;
+        var prevY = planet.prevY;
+        var currY = planet.position.y;
+        // First frame - no previous position yet
+        if (prevY === undefined)
+            return crossed;
+        // No movement
+        if (prevY === currY)
+            return crossed;
+        // Determine which grid lines we crossed
+        var minY = Math.min(prevY, currY);
+        var maxY = Math.max(prevY, currY);
+        // Find line indices for the range
+        var minLineIndex = Math.floor(minY / this.GRIDSIZE_H) + 1;
+        var maxLineIndex = Math.floor(maxY / this.GRIDSIZE_H);
         var numLinesH = Math.ceil((this.CANVAS_RECT.height / 2) / this.GRIDSIZE_H) + 1;
-        var arrayIndex = lineIndex + numLinesH;
-        // Check bounds and if this is a new crossing
-        // Use a tolerance based on grid size to catch fast-moving planets
-        var tolerance = this.GRIDSIZE_H / 4;
-        if (arrayIndex >= 0 && arrayIndex < this.GRID.HORIZONTALS.length) {
-            var line = this.GRID.HORIZONTALS[arrayIndex];
-            if (line && Math.abs(planet.position.y - line.simY) <= tolerance) {
-                if (arrayIndex != planet.lastCrossedLine_H) {
-                    planet.lastCrossedLine_H = arrayIndex;
-                    return arrayIndex;
-                }
+        // Collect all crossed lines
+        for (var lineIndex = minLineIndex; lineIndex <= maxLineIndex; lineIndex++) {
+            var arrayIndex = lineIndex + numLinesH;
+            if (arrayIndex >= 0 && arrayIndex < this.GRID.HORIZONTALS.length) {
+                crossed.push(arrayIndex);
             }
         }
-        return -1;
+        return crossed;
     },
     makeNote: function (gridline, planet, whichVelocity, horizOrVert) {
         if (!this.midiSelect || this.midiSelect.value == "webaudio") {
@@ -501,7 +541,7 @@ simulation.prototype = {
         //var velocity = this.convertRange(planetVelocity, [10, 500], [50, 127]);
         var volume = this.velocitytToDb(planetVelocity);
         var pitch = gridline.webAudioNote;
-        this.toneInterface.playString(gridline, pitch, volume, planet.mass, pan);
+        this.toneInterface.playString(gridline, pitch, volume, planet.mass, pan, horizOrVert);
     },
     PAN_RANGE: [-1, 1],
     getPlanetSoundPan: function (val) {

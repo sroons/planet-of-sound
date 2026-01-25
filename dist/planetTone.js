@@ -198,7 +198,9 @@ var soundPresets = {
 };
 var ToneInterface = /** @class */ (function () {
     function ToneInterface() {
-        this.masterVolume = new Tone.Volume(-10).toMaster();
+        // Limiter prevents distortion, allowing higher volume safely
+        var limiter = new Tone.Limiter(-1).toMaster();
+        this.masterVolume = new Tone.Volume(3).connect(limiter);
         this.reverb = new Tone.JCReverb({
             roomSize: 0.9
         });
@@ -206,6 +208,7 @@ var ToneInterface = /** @class */ (function () {
         this.reverb.connect(this.masterVolume);
         this.synths = new Object();
         this.soundPresets = { H: "chime", V: "vibes" };
+        this.axisVolume = { H: 1.0, V: 1.0 };
     }
     ToneInterface.prototype.makeString = function (horizOrVert) {
         var presetName = this.soundPresets[horizOrVert] || (horizOrVert === "H" ? "chime" : "vibes");
@@ -239,10 +242,19 @@ var ToneInterface = /** @class */ (function () {
     ToneInterface.prototype.setMute = function (muted) {
         this.masterVolume.mute = muted;
     };
-    ToneInterface.prototype.playString = function (line, pitch, volume, planetMass, pan) {
+    ToneInterface.prototype.setAxisVolume = function (axis, volume) {
+        this.axisVolume[axis] = volume;
+    };
+    ToneInterface.prototype.playString = function (line, pitch, volume, planetMass, pan, horizOrVert) {
         var string = line.string;
         var panner = line.panner;
-        panner.volume.value = volume;
+        // Apply axis volume (0-1 multiplier, convert to dB: 0 = -Infinity, 1 = 0dB)
+        var axisVol = this.axisVolume[horizOrVert];
+        if (axisVol === undefined)
+            axisVol = 1.0;
+        // Scale volume: at axisVol=1, no change; at axisVol=0, reduce by 40dB
+        var axisDbOffset = (axisVol - 1.0) * 40;
+        panner.volume.value = volume + axisDbOffset;
         if (pan != null)
             panner.pan.value = pan;
         string.connect(panner);
