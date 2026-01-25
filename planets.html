@@ -201,6 +201,36 @@
             height: 28px;
         }
 
+        /* Text Input */
+        .text-input {
+            width: 100%;
+            height: 32px;
+            padding: 0 12px;
+            font-size: 14px;
+            font-family: inherit;
+            color: #242424;
+            background-color: #ffffff;
+            border: 1px solid #d1d1d1;
+            border-radius: 4px;
+        }
+        .text-input:hover { border-color: #c7c7c7; }
+        .text-input:focus {
+            outline: none;
+            border-color: #0078d4;
+            box-shadow: 0 0 0 1px #0078d4;
+        }
+        .text-input::placeholder { color: #999; }
+
+        /* Preset Buttons Row */
+        .preset-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .preset-buttons .btn {
+            flex: 1;
+        }
+
         /* Toggle Switch */
         .toggle-group {
             display: flex;
@@ -495,6 +525,26 @@
 
             <div class="section-divider"></div>
 
+            <!-- Presets Section -->
+            <div class="form-group">
+                <label class="form-label">Presets</label>
+                <select id="presetSelect" class="dropdown-select">
+                    <option value="">-- Select Preset --</option>
+                </select>
+            </div>
+
+            <div class="preset-buttons">
+                <button class="btn btn-secondary" id="loadPresetButton">Load</button>
+                <button class="btn btn-secondary" id="deletePresetButton">Delete</button>
+            </div>
+
+            <div class="form-group" style="margin-top: 12px;">
+                <input type="text" id="presetName" class="text-input" placeholder="Preset name...">
+            </div>
+            <button class="btn btn-secondary" id="savePresetButton">Save Preset</button>
+
+            <div class="section-divider"></div>
+
             <!-- MIDI Output -->
             <div class="form-group">
                 <label class="form-label">MIDI Output</label>
@@ -648,6 +698,184 @@
                 window.sim.setAutoZoom(autoZoomToggle.checked);
             }
         });
+
+        // Preset functionality
+        var presetSelect = document.getElementById("presetSelect");
+        var presetNameInput = document.getElementById("presetName");
+        var savePresetButton = document.getElementById("savePresetButton");
+        var loadPresetButton = document.getElementById("loadPresetButton");
+        var deletePresetButton = document.getElementById("deletePresetButton");
+
+        var PRESET_STORAGE_KEY = "planetTones_presets";
+
+        function getPresets() {
+            var stored = localStorage.getItem(PRESET_STORAGE_KEY);
+            return stored ? JSON.parse(stored) : {};
+        }
+
+        function savePresets(presets) {
+            localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
+        }
+
+        function refreshPresetList() {
+            var presets = getPresets();
+            presetSelect.innerHTML = '<option value="">-- Select Preset --</option>';
+            for (var name in presets) {
+                var opt = document.createElement("option");
+                opt.value = name;
+                opt.textContent = name;
+                presetSelect.appendChild(opt);
+            }
+        }
+
+        function getCurrentSettings() {
+            return {
+                system: document.getElementById("system").value,
+                scale_h: document.getElementById("scale_h").value,
+                scale_v: document.getElementById("scale_v").value,
+                gridSize_h: document.getElementById("gridSize_h").value,
+                gridSize_v: document.getElementById("gridSize_v").value,
+                tone_h: document.getElementById("tone_h").value,
+                tone_v: document.getElementById("tone_v").value,
+                octave_h: document.getElementById("octave_h").value,
+                octave_v: document.getElementById("octave_v").value,
+                randomizeOctaves_h: document.getElementById("randomizeOctaves_h").checked,
+                randomizeOctaves_v: document.getElementById("randomizeOctaves_v").checked,
+                volume_h: document.getElementById("volumeSlider_h").value,
+                volume_v: document.getElementById("volumeSlider_v").value,
+                volume_master: document.getElementById("volumeSlider").value,
+                autoZoom: document.getElementById("autoZoom").checked
+            };
+        }
+
+        function applySettings(settings) {
+            if (!settings) return;
+
+            // Apply each setting and trigger change events
+            if (settings.system) {
+                document.getElementById("system").value = settings.system;
+            }
+            if (settings.scale_h) {
+                document.getElementById("scale_h").value = settings.scale_h;
+            }
+            if (settings.scale_v) {
+                document.getElementById("scale_v").value = settings.scale_v;
+            }
+            if (settings.gridSize_h) {
+                document.getElementById("gridSize_h").value = settings.gridSize_h;
+            }
+            if (settings.gridSize_v) {
+                document.getElementById("gridSize_v").value = settings.gridSize_v;
+            }
+            if (settings.tone_h) {
+                document.getElementById("tone_h").value = settings.tone_h;
+            }
+            if (settings.tone_v) {
+                document.getElementById("tone_v").value = settings.tone_v;
+            }
+            if (settings.octave_h) {
+                document.getElementById("octave_h").value = settings.octave_h;
+            }
+            if (settings.octave_v) {
+                document.getElementById("octave_v").value = settings.octave_v;
+            }
+            if (settings.randomizeOctaves_h !== undefined) {
+                document.getElementById("randomizeOctaves_h").checked = settings.randomizeOctaves_h;
+            }
+            if (settings.randomizeOctaves_v !== undefined) {
+                document.getElementById("randomizeOctaves_v").checked = settings.randomizeOctaves_v;
+            }
+            if (settings.volume_h) {
+                var slider_h = document.getElementById("volumeSlider_h");
+                slider_h.value = settings.volume_h;
+                document.getElementById("volumeValue_h").textContent = settings.volume_h + "%";
+                updateAxisVolumeSliderBackground(slider_h);
+                if (window.sim && window.sim.toneInterface) {
+                    window.sim.toneInterface.setAxisVolume("V", parseInt(settings.volume_h) / 100);
+                }
+            }
+            if (settings.volume_v) {
+                var slider_v = document.getElementById("volumeSlider_v");
+                slider_v.value = settings.volume_v;
+                document.getElementById("volumeValue_v").textContent = settings.volume_v + "%";
+                updateAxisVolumeSliderBackground(slider_v);
+                if (window.sim && window.sim.toneInterface) {
+                    window.sim.toneInterface.setAxisVolume("H", parseInt(settings.volume_v) / 100);
+                }
+            }
+            if (settings.volume_master) {
+                volumeSlider.value = settings.volume_master;
+                volumeValue.textContent = settings.volume_master + "%";
+                updateVolumeSliderBackground();
+                var db = settings.volume_master === "0" ? -60 : (parseInt(settings.volume_master) / 100) * 60 - 60;
+                if (window.sim && window.sim.toneInterface) {
+                    window.sim.toneInterface.setVolume(db);
+                }
+            }
+            if (settings.autoZoom !== undefined) {
+                document.getElementById("autoZoom").checked = settings.autoZoom;
+                if (window.sim) {
+                    window.sim.setAutoZoom(settings.autoZoom);
+                }
+            }
+
+            // Reinitialize simulation with new settings
+            if (window.sim) {
+                window.sim.setRandomizeOctaves("h");
+                window.sim.setRandomizeOctaves("v");
+                window.sim.setOctave("h");
+                window.sim.setOctave("v");
+                window.sim.setTone("h");
+                window.sim.setTone("v");
+                window.sim.initializeScale("h");
+                window.sim.initializeScale("v");
+                window.sim.resetGrid();
+                window.sim.initializePlanets();
+            }
+        }
+
+        savePresetButton.addEventListener("click", function() {
+            var name = presetNameInput.value.trim();
+            if (!name) {
+                alert("Please enter a preset name.");
+                return;
+            }
+            var presets = getPresets();
+            presets[name] = getCurrentSettings();
+            savePresets(presets);
+            refreshPresetList();
+            presetSelect.value = name;
+            presetNameInput.value = "";
+        });
+
+        loadPresetButton.addEventListener("click", function() {
+            var name = presetSelect.value;
+            if (!name) {
+                alert("Please select a preset to load.");
+                return;
+            }
+            var presets = getPresets();
+            if (presets[name]) {
+                applySettings(presets[name]);
+            }
+        });
+
+        deletePresetButton.addEventListener("click", function() {
+            var name = presetSelect.value;
+            if (!name) {
+                alert("Please select a preset to delete.");
+                return;
+            }
+            if (confirm("Delete preset '" + name + "'?")) {
+                var presets = getPresets();
+                delete presets[name];
+                savePresets(presets);
+                refreshPresetList();
+            }
+        });
+
+        // Initialize preset list on page load
+        refreshPresetList();
     </script>
 
     <script src="./dist/planets.js"
