@@ -3,12 +3,13 @@ simulation.prototype = {
     G: 10000,
     PATH_MAX_POINTS: 100,
     MAX_DELTA: 0.03,
-    STEPS: 50,
+    STEPS: 25,
     MINV: 1,
     MAXV: 150,
     MINDB: Math.log(1),
     MAXDB: Math.log(100),
-    GRIDSIZE: 50,
+    GRIDSIZE_H: 50,
+    GRIDSIZE_V: 50,
     center: 0,
     systems: null,
     planets: [],
@@ -22,12 +23,23 @@ simulation.prototype = {
     scales: null,
     midiInterface: null,
     midiSelect: null,
-    gridSizeSelect: null,
+    gridSizeSelect_h: null,
+    gridSizeSelect_v: null,
+    toneSelect_h: null,
+    toneSelect_v: null,
     midiRange: [-1, 4],
     toneRange: [0, 6],
     title: "Planet Tones",
-    randomizeOctaves: false,
+    randomizeOctaves_h: false,
+    randomizeOctaves_v: false,
     playDrones: true,
+    autoZoom: false,
+    autoZoomPadding: 0.15,
+    currentScale: 1,
+    targetScale: 1,
+    scaleLerpSpeed: 0.03,
+    lastScale: 1,
+    zoomTimeout: null,
     init: function (systems, scales) {
         var self = this;
         this.midiInterface = new MidiInterface(function (msg) {
@@ -42,12 +54,15 @@ simulation.prototype = {
         this.setGridSize();
         this.initializeGrid();
         this.initializePlanets();
+        this.initZoomControls();
     },
-    setGridSize: function (newSize) {
-        if (this.gridSizeSelect == undefined)
-            this.gridSizeSelect = document.getElementById("gridSize");
-        //console.log(this.gridSizeSelect);
-        this.GRIDSIZE = this.gridSizeSelect.options[this.gridSizeSelect.selectedIndex].value;
+    setGridSize: function () {
+        if (this.gridSizeSelect_h == undefined)
+            this.gridSizeSelect_h = document.getElementById("gridSize_h");
+        if (this.gridSizeSelect_v == undefined)
+            this.gridSizeSelect_v = document.getElementById("gridSize_v");
+        this.GRIDSIZE_H = parseInt(this.gridSizeSelect_h.options[this.gridSizeSelect_h.selectedIndex].value);
+        this.GRIDSIZE_V = parseInt(this.gridSizeSelect_v.options[this.gridSizeSelect_v.selectedIndex].value);
     },
     resetGrid: function () {
         this.setGridSize();
@@ -62,71 +77,51 @@ simulation.prototype = {
         this.titleText.content = this.title;
         console.log('title :: ' + this.title);
     },
-    showNotes: false,
     initializeGrid: function () {
         var c = document.getElementById("canvas");
         this.CANVAS_RECT = c.getBoundingClientRect();
-        this.GRID.VERTICALS = [this.CANVAS_RECT.width];
-        this.GRID.HORIZONTALS = [this.CANVAS_RECT.height];
-        //create vertical lines
-        var newX = 0;
-        var convertedX = 0;
-        var x = 1;
+        this.GRID.VERTICALS = [];
+        this.GRID.HORIZONTALS = [];
+        // Calculate number of lines needed to cover screen from center
+        var halfWidth = this.CANVAS_RECT.width / 2;
+        var halfHeight = this.CANVAS_RECT.height / 2;
+        var numLinesV = Math.ceil(halfWidth / this.GRIDSIZE_V) + 1;
+        var numLinesH = Math.ceil(halfHeight / this.GRIDSIZE_H) + 1;
+        // Create vertical lines from center outward (both directions)
         this.octave = 0;
-        do {
-            newX = this.GRIDSIZE * x;
-            convertedX = Math.floor(this.paperCoordinates(new Point(newX, 0)).x);
-            var midiPitch = this.getPitch(x, "v", "midi");
-            var tonePitch = this.getPitch(x, "v", "audio");
-            var line = new GridLine(convertedX, 0, this.CANVAS_RECT.height, 0.2, midiPitch, tonePitch, "vertical");
-            line.path = new Path.Line(new Point(newX, 0), new Point(newX, this.CANVAS_RECT.height));
-            if (this.showNotes) {
-                line.text = new PointText(new Point(newX, this.GRIDSIZE));
-                line.text.strokeColor = "#fff";
-                line.text.fillColor = "#fff";
-                line.text.opacity = 1;
-                line.text.fontSize = (this.GRIDSIZE / 1.5 < 15 ? this.GRIDSIZE / 1.5 : 15);
-                line.text.opacity = 0.3;
-                line.text.fontWeight = 100;
-                line.text.fontFamily = "sans-serif";
-                line.text.justification = "center";
-            }
-            var xrange = [0, this.CANVAS_RECT.width];
-            var pan = this.convertRange(newX, xrange, [-1, 1]);
+        for (var x = -numLinesV; x <= numLinesV; x++) {
+            var simX = this.GRIDSIZE_V * x; // Simulation coordinate (0 = center)
+            var lineIndex = Math.abs(x) || 1; // Use 1 for center line pitch
+            var midiPitch = this.getPitch(lineIndex, "v", "midi");
+            var tonePitch = this.getPitch(lineIndex, "v", "audio");
+            var screenX = view.center.x - simX;
+            var line = new GridLine(Math.floor(simX), 0, this.CANVAS_RECT.height, 0.2, midiPitch, tonePitch, "vertical");
+            line.simX = simX;
+            line.path = new Path.Line(new Point(screenX, 0), new Point(screenX, this.CANVAS_RECT.height));
+            line.path.strokeColor = line.color;
+            line.path.opacity = 0.3;
+            var pan = this.convertRange(screenX, [0, this.CANVAS_RECT.width], [-1, 1]);
             line.string = this.toneInterface.makeString("V");
             line.panner = this.toneInterface.makeStringPanner(pan);
-            this.GRID.VERTICALS[x] = line;
-            x++;
-        } while (this.GRIDSIZE * x < this.CANVAS_RECT.width);
-        //create horizontal lines
+            this.GRID.VERTICALS.push(line);
+        }
+        // Create horizontal lines from center outward (both directions)
         this.octave = 0;
-        var newY = 0;
-        var convertedY = 0;
-        var y = 1;
-        do {
-            newY = this.GRIDSIZE * y;
-            midiPitch = this.getPitch(y, "h", "midi");
-            tonePitch = this.getPitch(y, "h", "audio");
-            convertedY = Math.floor(this.paperCoordinates(new Point(0, newY)).y);
-            var line = new GridLine(0, convertedY, this.CANVAS_RECT.width, 0.2, midiPitch, tonePitch, "horizontal");
-            line.path = new Path.Line(new Point(0, newY), new Point(this.CANVAS_RECT.width, newY));
-            if (this.showNotes) {
-                line.text = new PointText(new Point(this.GRIDSIZE, newY));
-                line.text.strokeColor = "#fff";
-                line.text.strokeColor = "#fff";
-                line.text.fillColor = "#fff";
-                line.text.opacity = 1;
-                line.text.fontSize = (this.GRIDSIZE / 1.5 < 15 ? this.GRIDSIZE / 1.5 : 15);
-                line.text.opacity = 0.3;
-                line.text.fontWeight = 100;
-                line.text.fontFamily = "sans-serif";
-                line.text.justification = "center";
-            }
+        for (var y = -numLinesH; y <= numLinesH; y++) {
+            var simY = this.GRIDSIZE_H * y; // Simulation coordinate (0 = center)
+            var lineIndex = Math.abs(y) || 1;
+            var midiPitch = this.getPitch(lineIndex, "h", "midi");
+            var tonePitch = this.getPitch(lineIndex, "h", "audio");
+            var screenY = view.center.y - simY;
+            var line = new GridLine(0, Math.floor(simY), this.CANVAS_RECT.width, 0.2, midiPitch, tonePitch, "horizontal");
+            line.simY = simY;
+            line.path = new Path.Line(new Point(0, screenY), new Point(this.CANVAS_RECT.width, screenY));
+            line.path.strokeColor = line.color;
+            line.path.opacity = 0.3;
             line.string = this.toneInterface.makeString("H");
             line.panner = this.toneInterface.makeStringPanner(0.5);
-            this.GRID.HORIZONTALS[y] = line;
-            y++;
-        } while (this.GRIDSIZE * y < this.CANVAS_RECT.height);
+            this.GRID.HORIZONTALS.push(line);
+        }
     },
     getPitch: function (lineNum, horizOrVert, midiOrAudio) {
         if (this.scaleToPlay.h == undefined) {
@@ -135,9 +130,11 @@ simulation.prototype = {
         }
         ;
         var scale = this.scaleToPlay[horizOrVert];
-        var numGridLines = (horizOrVert == "h") ? this.CANVAS_RECT.height / this.GRIDSIZE : this.CANVAS_RECT.width / this.GRIDSIZE;
+        var gridSize = (horizOrVert == "h") ? this.GRIDSIZE_H : this.GRIDSIZE_V;
+        var numGridLines = (horizOrVert == "h") ? this.CANVAS_RECT.height / gridSize : this.CANVAS_RECT.width / gridSize;
+        var randomize = (horizOrVert == "h") ? this.randomizeOctaves_h : this.randomizeOctaves_v;
         var octave;
-        if (this.randomizeOctaves == true) {
+        if (randomize == true) {
             octave = Math.floor(Math.random() * 9);
         }
         else {
@@ -152,11 +149,10 @@ simulation.prototype = {
         this.select.addEventListener('change', function () {
             self.initializePlanets();
         }, false);
-        //why not use push here?
         for (var system in this.systems) {
             this.select.options[this.select.options.length] = new Option(system, system);
         }
-        var dropdown = new fabric['Dropdown'](document.getElementById("systemDropdown"));
+        // Horizontal scale dropdown
         this.h_scaleSelect = document.getElementById("scale_h");
         this.h_scaleSelect.addEventListener('change', function () {
             self.initializeScale("h");
@@ -167,7 +163,7 @@ simulation.prototype = {
                 opt.selected = true;
             this.h_scaleSelect.options[this.h_scaleSelect.options.length] = opt;
         }
-        var dropdown = new fabric['Dropdown'](document.getElementById("h-scale-dropdown"));
+        // Vertical scale dropdown
         this.v_scaleSelect = document.getElementById("scale_v");
         this.v_scaleSelect.addEventListener('change', function () {
             self.initializeScale("v");
@@ -178,29 +174,94 @@ simulation.prototype = {
                 opt.selected = true;
             this.v_scaleSelect.options[this.v_scaleSelect.options.length] = opt;
         }
-        var dropdown = new fabric['Dropdown'](document.getElementById("v-scale-dropdown"));
-        this.gridSizeSelect = document.getElementById("gridSize");
-        this.gridSizeSelect.addEventListener('change', function () {
+        // Horizontal linespacing (grid size) dropdown
+        this.gridSizeSelect_h = document.getElementById("gridSize_h");
+        this.gridSizeSelect_h.addEventListener('change', function () {
             self.resetGrid();
         }, false);
-        this.gridSizeSelect.value = 25;
-        var dropdown = new fabric['Dropdown'](document.getElementById("grid-size-dropdown"));
-        this.showNotesCheckbox = document.getElementById("showNotes");
-        this.showNotesCheckbox.addEventListener('click', function () {
-            self.setNotesVisible();
+        this.gridSizeSelect_h.value = "25";
+        // Vertical gridsize dropdown
+        this.gridSizeSelect_v = document.getElementById("gridSize_v");
+        this.gridSizeSelect_v.addEventListener('change', function () {
+            self.resetGrid();
         }, false);
-        this.randomizeOctavesCheckbox = document.getElementById("randomizeOctaves");
-        this.randomizeOctavesCheckbox.addEventListener('click', function () {
-            self.setRandomizeOctaves();
+        this.gridSizeSelect_v.value = "25";
+        // Horizontal tone dropdown
+        this.toneSelect_h = document.getElementById("tone_h");
+        this.populateToneOptions(this.toneSelect_h, "chime");
+        this.toneSelect_h.addEventListener('change', function () {
+            self.setTone("h");
+        }, false);
+        // Vertical tone dropdown
+        this.toneSelect_v = document.getElementById("tone_v");
+        this.populateToneOptions(this.toneSelect_v, "vibes");
+        this.toneSelect_v.addEventListener('change', function () {
+            self.setTone("v");
+        }, false);
+        // Randomize octave toggles
+        this.randomizeOctavesCheckbox_h = document.getElementById("randomizeOctaves_h");
+        this.randomizeOctavesCheckbox_h.addEventListener('change', function () {
+            self.setRandomizeOctaves("h");
+        });
+        this.randomizeOctavesCheckbox_v = document.getElementById("randomizeOctaves_v");
+        this.randomizeOctavesCheckbox_v.addEventListener('change', function () {
+            self.setRandomizeOctaves("v");
         });
     },
-    setNotesVisible: function () {
-        this.showNotes = this.showNotesCheckbox.checked;
-        this.clearGrid();
-        this.initializeGrid();
+    populateToneOptions: function (selectElement, defaultPreset) {
+        // Sound presets organized by category
+        var presets = [
+            // Short/Percussive
+            { name: "pluck", label: "Pluck (short)" },
+            { name: "click", label: "Click (very short)" },
+            { name: "tick", label: "Tick (crisp)" },
+            // Metallic
+            { name: "bell", label: "Bell (metallic)" },
+            { name: "chime", label: "Chime (metallic)" },
+            { name: "gong", label: "Gong (long metallic)" },
+            { name: "metallic", label: "Metallic (harsh)" },
+            // Gritty
+            { name: "buzz", label: "Buzz (gritty)" },
+            { name: "growl", label: "Growl (dark)" },
+            { name: "zap", label: "Zap (electric)" },
+            { name: "crunch", label: "Crunch (harsh)" },
+            // Mellow
+            { name: "soft", label: "Soft (gentle)" },
+            { name: "warm", label: "Warm (mellow)" },
+            { name: "pad", label: "Pad (atmospheric)" },
+            { name: "flute", label: "Flute (breathy)" },
+            // Mallet/Keyboard
+            { name: "vibes", label: "Vibes (vibraphone)" },
+            { name: "marimba", label: "Marimba (wood)" },
+            { name: "kalimba", label: "Kalimba (thumb piano)" },
+            { name: "glass", label: "Glass (crystalline)" },
+            // Long sustain
+            { name: "drone", label: "Drone (sustained)" },
+            { name: "swell", label: "Swell (slow attack)" }
+        ];
+        for (var i = 0; i < presets.length; i++) {
+            var opt = new Option(presets[i].label, presets[i].name);
+            if (presets[i].name === defaultPreset)
+                opt.selected = true;
+            selectElement.options[selectElement.options.length] = opt;
+        }
     },
-    setRandomizeOctaves: function () {
-        this.randomizeOctaves = this.randomizeOctavesCheckbox.checked;
+    setTone: function (horizOrVert) {
+        var selectElement = (horizOrVert === "h") ? this.toneSelect_h : this.toneSelect_v;
+        var tone = selectElement.options[selectElement.selectedIndex].value;
+        if (this.toneInterface) {
+            this.toneInterface.setWaveType(horizOrVert.toUpperCase(), tone);
+            this.clearGrid();
+            this.initializeGrid();
+        }
+    },
+    setRandomizeOctaves: function (horizOrVert) {
+        if (horizOrVert === "h") {
+            this.randomizeOctaves_h = this.randomizeOctavesCheckbox_h.checked;
+        }
+        else {
+            this.randomizeOctaves_v = this.randomizeOctavesCheckbox_v.checked;
+        }
         this.clearGrid();
         this.initializeGrid();
     },
@@ -217,7 +278,6 @@ simulation.prototype = {
         }
         ;
         this.midiSelect.options[this.midiSelect.options.length] = new Option("web audio", "webaudio");
-        var dropdown = new fabric['Dropdown'](document.getElementById("audio-out-dropdown"));
     },
     setMidiDevice: function () {
         this.midiInterface.setOutput(this.midiSelect.selectedIndex);
@@ -281,7 +341,9 @@ simulation.prototype = {
     draw: function () {
         for (var i in this.planets) {
             var planet = this.planets[i];
-            var radius = Math.max(Math.min(Math.pow(planet.mass, 1 / 3), 5), 2);
+            var baseRadius = Math.max(Math.min(Math.pow(planet.mass, 1 / 3), 5), 2);
+            planet.baseRadius = baseRadius; // Store base radius for scaling
+            var radius = baseRadius * this.currentScale;
             planet.circle = new Path.Circle(this.paperCoordinates(planet.position), radius);
             planet.circle.strokeColor = planet.color;
             planet.circle.fillColor = planet.color;
@@ -368,66 +430,50 @@ simulation.prototype = {
     LASTX: 0,
     LASTY: 0,
     checkGridCrossingX: function (planet) {
-        var lineNum = -1;
-        var newX = Math.floor(planet.position.x);
-        var planetRadius = Math.floor(planet.circle.bounds.width) / 2;
-        newX = Math.floor(newX - planetRadius);
-        //hit is most likely to occur in the middle of the grid
-        //start on the middle line and go up
-        //if not found, go back to the middle line and go down
-        var start = Math.floor(this.GRID.VERTICALS.length / 2);
-        for (var i = start; i < this.GRID.VERTICALS.length; i++) {
-            if (newX == this.GRID.VERTICALS[i].x) {
-                if (i != planet.lastCrossedLine_V) {
-                    planet.lastCrossedLine_V = i;
-                    lineNum = i;
-                    break;
+        if (!planet.circle)
+            return -1;
+        // Use cached radius or calculate once
+        if (!planet.cachedRadius) {
+            planet.cachedRadius = Math.floor(planet.circle.bounds.width / 2);
+        }
+        // Calculate which grid line index this position corresponds to (O(1) instead of O(n))
+        var scaledX = planet.position.x * this.currentScale;
+        var lineIndex = Math.round(scaledX / this.GRIDSIZE_V);
+        // Find the line in our array (lines are indexed from -numLines to +numLines)
+        var numLinesV = Math.ceil((this.CANVAS_RECT.width / 2) / this.GRIDSIZE_V) + 1;
+        var arrayIndex = lineIndex + numLinesV;
+        // Check bounds and if this is a new crossing
+        if (arrayIndex >= 0 && arrayIndex < this.GRID.VERTICALS.length) {
+            var line = this.GRID.VERTICALS[arrayIndex];
+            if (line && Math.abs(scaledX - line.simX * this.currentScale) < 2) {
+                if (arrayIndex != planet.lastCrossedLine_V) {
+                    planet.lastCrossedLine_V = arrayIndex;
+                    return arrayIndex;
                 }
             }
         }
-        if (lineNum == -1) {
-            for (var i = start; i > 0; i--) {
-                if (newX == this.GRID.VERTICALS[i].x) {
-                    if (i != planet.lastCrossedLine_V) {
-                        planet.lastCrossedLine_V = i;
-                        lineNum = i;
-                        break;
-                    }
-                }
-            }
-        }
-        return lineNum;
+        return -1;
     },
     checkGridCrossingY: function (planet) {
-        var lineNum = -1;
-        var newY = Math.floor(planet.position.y);
-        var planetRadius = Math.floor(planet.circle.bounds.height) / 2;
-        newY = Math.floor(newY - planetRadius);
-        //hit is most likely to occur in the middle of the grid
-        //start on the middle line and go up
-        //if not found, go back to the middle line and go down
-        var start = Math.floor(this.GRID.HORIZONTALS.length / 2);
-        for (var i = start; i < this.GRID.HORIZONTALS.length; i++) {
-            if (newY == this.GRID.HORIZONTALS[i].y) {
-                if (i != planet.lastCrossedLine_H) {
-                    planet.lastCrossedLine_H = i;
-                    lineNum = i;
-                    break;
+        if (!planet.circle)
+            return -1;
+        // Calculate which grid line index this position corresponds to (O(1) instead of O(n))
+        var scaledY = planet.position.y * this.currentScale;
+        var lineIndex = Math.round(scaledY / this.GRIDSIZE_H);
+        // Find the line in our array (lines are indexed from -numLines to +numLines)
+        var numLinesH = Math.ceil((this.CANVAS_RECT.height / 2) / this.GRIDSIZE_H) + 1;
+        var arrayIndex = lineIndex + numLinesH;
+        // Check bounds and if this is a new crossing
+        if (arrayIndex >= 0 && arrayIndex < this.GRID.HORIZONTALS.length) {
+            var line = this.GRID.HORIZONTALS[arrayIndex];
+            if (line && Math.abs(scaledY - line.simY * this.currentScale) < 2) {
+                if (arrayIndex != planet.lastCrossedLine_H) {
+                    planet.lastCrossedLine_H = arrayIndex;
+                    return arrayIndex;
                 }
             }
         }
-        if (lineNum == -1) {
-            for (var i = start; i > 0; i--) {
-                if (newY == this.GRID.HORIZONTALS[i].y) {
-                    if (i != planet.lastCrossedLine_H) {
-                        planet.lastCrossedLine_H = i;
-                        lineNum = i;
-                        break;
-                    }
-                }
-            }
-        }
-        return lineNum;
+        return -1;
     },
     makeNote: function (gridline, planet, whichVelocity, horizOrVert) {
         if (!this.midiSelect || this.midiSelect.value == "webaudio") {
@@ -511,21 +557,67 @@ simulation.prototype = {
         for (var i in this.planets) {
             this.updatePlanetRepresentation(this.planets[i]);
         }
-        for (var i = 0; i < this.GRID.VERTICALS.length; i++) {
-            this.updateGridLine(this.GRID.VERTICALS[i]);
+        // Only update grid positions when scale has changed
+        var scaleChanged = Math.abs(this.currentScale - this.lastScale) > 0.001;
+        if (scaleChanged) {
+            for (var i = 0; i < this.GRID.VERTICALS.length; i++) {
+                this.updateGridLine(this.GRID.VERTICALS[i]);
+            }
+            for (var i = 0; i < this.GRID.HORIZONTALS.length; i++) {
+                this.updateGridLine(this.GRID.HORIZONTALS[i]);
+            }
+            this.lastScale = this.currentScale;
         }
-        for (var i in this.GRID.HORIZONTALS) {
-            this.updateGridLine(this.GRID.HORIZONTALS[i]);
+        // Only update plucked lines (for animation)
+        for (var i = 0; i < this.pluckedLines.length; i++) {
+            var line = this.pluckedLines[i];
+            if (line && line.path) {
+                if (line.plucked) {
+                    line.path.strokeColor = line.pluckedColor;
+                    line.path.opacity -= 0.03;
+                }
+            }
         }
     },
     updatePlanetRepresentation: function (planet) {
+        if (!planet.circle || !planet.path)
+            return;
         planet.circle.position = this.paperCoordinates(planet.position);
+        // Only scale circle when zoom scale has changed
+        if (planet.baseRadius && planet.lastAppliedScale !== this.currentScale) {
+            var targetRadius = planet.baseRadius * this.currentScale;
+            var currentRadius = planet.circle.bounds.width / 2;
+            if (currentRadius > 0) {
+                planet.circle.scale(targetRadius / currentRadius);
+                planet.lastAppliedScale = this.currentScale;
+            }
+        }
         planet.path.add(this.paperCoordinates(planet.position));
         if (planet.path.segments.length > this.PATH_MAX_POINTS) {
             planet.path.removeSegments(0, 1);
         }
     },
+    // Update grid line position (called only when scale changes)
     updateGridLine: function (line) {
+        if (line.path != undefined) {
+            if (line.simX !== undefined) {
+                var screenX = view.center.x - (line.simX * this.currentScale);
+                var segments = line.path.segments;
+                segments[0].point.x = screenX;
+                segments[1].point.x = screenX;
+                line.x = Math.floor(line.simX * this.currentScale);
+            }
+            if (line.simY !== undefined) {
+                var screenY = view.center.y - (line.simY * this.currentScale);
+                var segments = line.path.segments;
+                segments[0].point.y = screenY;
+                segments[1].point.y = screenY;
+                line.y = Math.floor(line.simY * this.currentScale);
+            }
+        }
+    },
+    // Update grid line visual appearance (called every frame for pluck animation)
+    updateGridLineVisual: function (line) {
         if (line.path != undefined) {
             if (line.plucked) {
                 line.path.strokeColor = line.pluckedColor;
@@ -533,12 +625,103 @@ simulation.prototype = {
             }
             else {
                 line.path.strokeColor = line.color;
-                line.path.opacity = 0.12;
+                line.path.opacity = 0.3;
             }
         }
-        if (line.text != undefined) {
-            line.text.content = line.webAudioNote;
+    },
+    // Auto-zoom: calculate bounding box of all planets
+    getPlanetBounds: function () {
+        if (this.planets.length === 0)
+            return null;
+        var minX = Infinity, maxX = -Infinity;
+        var minY = Infinity, maxY = -Infinity;
+        for (var i in this.planets) {
+            var pos = this.planets[i].position;
+            if (pos.x < minX)
+                minX = pos.x;
+            if (pos.x > maxX)
+                maxX = pos.x;
+            if (pos.y < minY)
+                minY = pos.y;
+            if (pos.y > maxY)
+                maxY = pos.y;
         }
+        return {
+            minX: minX,
+            maxX: maxX,
+            minY: minY,
+            maxY: maxY,
+            width: maxX - minX,
+            height: maxY - minY,
+            centerX: (minX + maxX) / 2,
+            centerY: (minY + maxY) / 2
+        };
+    },
+    // Auto-zoom: calculate scale to fit planets in view
+    updateAutoZoom: function () {
+        if (!this.autoZoom) {
+            // Manual zoom - don't change scale
+            return;
+        }
+        var bounds = this.getPlanetBounds();
+        if (!bounds)
+            return;
+        // Add padding to bounds
+        var padding = this.autoZoomPadding;
+        var paddedWidth = bounds.width * (1 + padding * 2);
+        var paddedHeight = bounds.height * (1 + padding * 2);
+        // Ensure minimum size to avoid extreme scale
+        var minSize = 100;
+        paddedWidth = Math.max(paddedWidth, minSize);
+        paddedHeight = Math.max(paddedHeight, minSize);
+        // Calculate scale needed to fit planets in viewport
+        // We want the simulation to appear smaller when planets spread out
+        var viewWidth = view.viewSize.width;
+        var viewHeight = view.viewSize.height;
+        // Use smaller dimension to ensure everything fits
+        var scaleX = viewWidth / paddedWidth;
+        var scaleY = viewHeight / paddedHeight;
+        this.targetScale = Math.min(scaleX, scaleY);
+        // Clamp scale to reasonable range
+        this.targetScale = Math.max(0.2, Math.min(this.targetScale, 2));
+        // Smoothly interpolate toward target scale
+        this.currentScale += (this.targetScale - this.currentScale) * this.scaleLerpSpeed;
+    },
+    setAutoZoom: function (enabled) {
+        this.autoZoom = enabled;
+    },
+    // Manual zoom with mouse wheel/trackpad
+    manualZoom: function (delta) {
+        var self = this;
+        // Disable auto-zoom when manually zooming
+        if (this.autoZoom) {
+            this.autoZoom = false;
+            var autoZoomToggle = document.getElementById("autoZoom");
+            if (autoZoomToggle)
+                autoZoomToggle.checked = false;
+        }
+        // Adjust scale based on wheel delta
+        var zoomFactor = 1 + (delta * 0.001);
+        this.targetScale = this.currentScale * zoomFactor;
+        // Clamp scale to reasonable range
+        this.targetScale = Math.max(0.1, Math.min(this.targetScale, 5));
+        this.currentScale = this.targetScale;
+        // Debounced grid redraw after zooming stops
+        if (this.zoomTimeout)
+            clearTimeout(this.zoomTimeout);
+        this.zoomTimeout = setTimeout(function () {
+            self.resetGrid();
+        }, 300);
+    },
+    initZoomControls: function () {
+        var self = this;
+        var canvas = document.getElementById("canvas");
+        // Mouse wheel zoom
+        canvas.addEventListener("wheel", function (e) {
+            e.preventDefault();
+            // Invert delta so scroll up = zoom in
+            self.manualZoom(-e.deltaY);
+        }, { passive: false });
     },
     T: 0,
     pluckedLines: [],
@@ -548,7 +731,7 @@ simulation.prototype = {
         line.pluckedColor = planet.color;
         var lineTypeProperty = "lastCrossedLine_" + lineTypeProperty;
         planet[lineTypeProperty] = lineNum;
-        this.pluckedLines.push[line];
+        this.pluckedLines.push(line);
         line.path.opacity = 1;
         var self = this;
         var t = setTimeout(function () { self.clearLinePlucked(line, planet, lineTypeProperty); }, 500);
@@ -556,12 +739,20 @@ simulation.prototype = {
     },
     clearLinePlucked: function (line, planet, lineTypeProperty) {
         line.plucked = false;
+        line.path.opacity = 0.3;
+        line.path.strokeColor = line.color;
+        // Remove from pluckedLines array
+        var idx = this.pluckedLines.indexOf(line);
+        if (idx > -1)
+            this.pluckedLines.splice(idx, 1);
         var timeout = this.timeouts.shift();
         clearTimeout(timeout);
         planet[lineTypeProperty] = -1;
     },
     paperCoordinates: function (point) {
-        return view.center - point;
+        // Apply auto-zoom scale factor to the offset from center
+        var scaled = point * this.currentScale;
+        return view.center - scaled;
     },
     simulate: function (delta) {
         var v1 = this.getVelocities();
@@ -597,6 +788,7 @@ simulation.prototype = {
             this.simulate(delta / this.STEPS);
         }
         this.updateRepresentation();
+        this.updateAutoZoom();
     }
 };
 var colors = [

@@ -4,10 +4,6 @@
 <head>
     <title>Planets</title>
 
-    <link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-js/1.4.0/css/fabric.min.css" />
-    <link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-js/1.4.0/css/fabric.components.min.css" />
-    <script src="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-js/1.4.0/js/fabric.min.js"></script>
-
     <script>var exports = {};</script>
     <script src="https://cdn.jsdelivr.net/npm/webmidi@next/dist/iife/webmidi.iife.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tonaljs/tonal/browser/tonal.min.js"></script>
@@ -27,17 +23,24 @@
     <script src="./dist/planetMidi.js"></script>
     <script src="./dist/gridLine.js"></script>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
             background-color: #333;
-            font-family: sans-serif;
-            color:#333;
+            font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
+            color: #242424;
+            margin: 0;
+            padding: 0;
         }
+
+        /* Menu Toggle Button */
         #menuToggle {
             position: fixed;
             top: 20px;
             right: 20px;
-            width: 16px;
-            height: 16px;
+            width: 24px;
+            height: 24px;
             cursor: pointer;
             background: transparent;
             border: none;
@@ -46,241 +49,478 @@
         }
         .hamburger {
             position: relative;
-            width: 16px;
+            width: 20px;
             height: 16px;
         }
         .hamburger span {
             display: block;
             position: absolute;
-            height: 1px;
+            height: 2px;
             width: 100%;
-            background: #666;
+            background: #616161;
             left: 0;
-            transition: all 0.3s ease;
+            transition: all 0.25s ease;
+            border-radius: 1px;
         }
-        .hamburger span:nth-child(1) {
-            top: 2px;
-        }
-        .hamburger span:nth-child(2) {
-            top: 7px;
-        }
-        .hamburger span:nth-child(3) {
-            top: 12px;
-        }
+        .hamburger span:nth-child(1) { top: 0; }
+        .hamburger span:nth-child(2) { top: 7px; }
+        .hamburger span:nth-child(3) { top: 14px; }
         .hamburger.active span:nth-child(1) {
             top: 7px;
             transform: rotate(45deg);
         }
-        .hamburger.active span:nth-child(2) {
-            opacity: 0;
-        }
+        .hamburger.active span:nth-child(2) { opacity: 0; }
         .hamburger.active span:nth-child(3) {
             top: 7px;
             transform: rotate(-45deg);
         }
-        /* Hide the default close button */
-        .ms-Panel-closeButton {
-            display: none !important;
+
+        /* Sidebar Panel */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease, visibility 0.25s ease;
+            z-index: 1000;
         }
-        /* Dropdown styling - show 6 items with scrollbar */
-        .ms-Dropdown-items {
-            max-height: 216px !important;
-            overflow-y: auto !important;
-            border: 1px solid #c8c8c8;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        .sidebar-overlay.open { opacity: 1; visibility: visible; }
+
+        .sidebar-panel {
+            position: fixed;
+            top: 0;
+            right: -320px;
+            width: 320px;
+            height: 100%;
+            background: #ffffff;
+            box-shadow: -4px 0 16px rgba(0, 0, 0, 0.14);
+            transition: right 0.25s ease;
+            z-index: 1002;
+            overflow-y: auto;
         }
-        /* Override Panel-specific dropdown styling */
-        .ms-Panel .ms-Dropdown-items {
-            max-height: 216px !important;
-            overflow-y: auto !important;
+        .sidebar-panel.open { right: 0; }
+
+        .sidebar-content {
+            padding: 24px;
         }
-        .ms-Dropdown-item {
-            height: 36px;
-            line-height: 36px;
-        }
-        /* Tighten spacing between dropdown labels and menus */
-        .ms-Dropdown .ms-Label {
-            margin-bottom: 2px;
-        }
-        /* Make toggle labels match dropdown labels */
-        .ms-Toggle .ms-Toggle-description {
-            font-family: "Segoe UI WestEuropean", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
-            font-size: 12px;
-            font-weight: normal;
-            color: #333;
-        }
-        /* Mute button styling */
-        #muteButton {
+
+        /* Header */
+        .sidebar-header {
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
+            margin-bottom: 20px;
         }
-        #muteButton .ms-Button-label {
+        .sidebar-title {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin: 0;
+        }
+        .close-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            color: #616161;
+            font-size: 18px;
+            line-height: 1;
+        }
+        .close-button:hover { color: #242424; }
+
+        /* Section Dividers */
+        .section-divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 20px 0;
+        }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-label {
             display: block;
-            width: 50px;
-            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: #242424;
+            margin-bottom: 6px;
         }
-        /* Tighter vertical spacing for panel controls */
-        .ms-Panel .ms-Dropdown {
+
+        /* Dropdown Styling */
+        .dropdown-select {
+            width: 100%;
+            height: 32px;
+            padding: 0 32px 0 12px;
+            font-size: 14px;
+            font-family: inherit;
+            color: #242424;
+            background-color: #ffffff;
+            border: 1px solid #d1d1d1;
+            border-radius: 4px;
+            appearance: none;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23616161' d='M2.5 4.5L6 8l3.5-3.5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+        }
+        .dropdown-select:hover { border-color: #c7c7c7; }
+        .dropdown-select:focus {
+            outline: none;
+            border-color: #0078d4;
+            box-shadow: 0 0 0 1px #0078d4;
+        }
+
+        /* Toggle Switch */
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .toggle-label {
+            font-size: 14px;
+            font-weight: 400;
+            color: #242424;
+            margin-right: 12px;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 40px;
+            height: 20px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ffffff;
+            border: 1px solid #616161;
+            border-radius: 10px;
+            transition: 0.2s;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 12px;
+            width: 12px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #616161;
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #0078d4;
+            border-color: #0078d4;
+        }
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+            background-color: #ffffff;
+        }
+        .toggle-switch input:focus + .toggle-slider {
+            box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.3);
+        }
+
+        /* Volume Section */
+        .volume-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 8px;
         }
-        .ms-Panel .ms-Toggle {
-            margin-bottom: 8px;
+        .volume-value {
+            font-size: 14px;
+            color: #616161;
         }
-        #grid-size-dropdown {
-            margin-bottom: 4px;
+        .volume-slider {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(to right, #0078d4 50%, #e0e0e0 50%);
+            border-radius: 2px;
+            outline: none;
+            margin-bottom: 16px;
         }
-        .ms-Panel div[style*="margin: 16px"] {
-            margin-top: 8px !important;
-            margin-bottom: 8px !important;
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #0078d4;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #ffffff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         }
+        .volume-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #0078d4;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #ffffff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Buttons */
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            height: 32px;
+            padding: 0 12px;
+            font-size: 14px;
+            font-family: inherit;
+            font-weight: 400;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.1s ease, border-color 0.1s ease;
+        }
+        .btn-secondary {
+            background: #ffffff;
+            border: 1px solid #d1d1d1;
+            color: #242424;
+        }
+        .btn-secondary:hover {
+            background: #f5f5f5;
+            border-color: #c7c7c7;
+        }
+        .btn-danger {
+            background: #c50f1f;
+            border: 1px solid #c50f1f;
+            color: #ffffff;
+        }
+        .btn-danger:hover {
+            background: #a80000;
+            border-color: #a80000;
+        }
+        .btn-icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        #muteButton { margin-bottom: 20px; }
+        #stopButton { margin-top: 16px; }
     </style>
 
 </head>
 
-<body class="ms-Fabric">
-    <div class="ms-PanelExample" style="position:relative">
-        <button id="menuToggle">
-            <div class="hamburger">
-                <span></span>
-                <span></span>
-                <span></span>
+<body>
+    <!-- Menu Toggle Button -->
+    <button id="menuToggle">
+        <div class="hamburger">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </button>
+
+    <!-- Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Sidebar Panel -->
+    <div class="sidebar-panel" id="sidebarPanel">
+        <div class="sidebar-content">
+            <!-- Header -->
+            <div class="sidebar-header">
+                <h1 class="sidebar-title">Planet Tones</h1>
+                <button class="close-button" id="closeButton">✕</button>
             </div>
-        </button>
-        <div id="control_container" class="ms-Panel ms-Panel ms-bgColor-gray10">
-            <button class="ms-Panel-closeButton ms-PanelAction-close">
-                <i class="ms-Panel-closeIcon ms-Icon ms-Icon--Cancel"></i>
+
+            <!-- Planet Configuration -->
+            <div class="form-group">
+                <label class="form-label">Planet Configuration</label>
+                <select id="system" class="dropdown-select">
+                </select>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Horizontal Section -->
+            <div class="form-group">
+                <label class="form-label">Horizontal Scale</label>
+                <select id="scale_h" class="dropdown-select">
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Horizontal Linespacing</label>
+                <select id="gridSize_h" class="dropdown-select">
+                    <option value="10">10</option>
+                    <option value="12">12</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Horizontal Tone</label>
+                <select id="tone_h" class="dropdown-select">
+                </select>
+            </div>
+
+            <div class="toggle-group">
+                <span class="toggle-label">Randomize Horizontal Octave</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="randomizeOctaves_h">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Vertical Section -->
+            <div class="form-group">
+                <label class="form-label">Vertical Scale</label>
+                <select id="scale_v" class="dropdown-select">
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Vertical Gridsize</label>
+                <select id="gridSize_v" class="dropdown-select">
+                    <option value="10">10</option>
+                    <option value="12">12</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Vertical Tone</label>
+                <select id="tone_v" class="dropdown-select">
+                </select>
+            </div>
+
+            <div class="toggle-group">
+                <span class="toggle-label">Randomize Vertical Octave</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="randomizeOctaves_v">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- View Section -->
+            <div class="toggle-group">
+                <span class="toggle-label">Auto-Zoom</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="autoZoom">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Volume Section -->
+            <div class="volume-header">
+                <span class="form-label" style="margin-bottom: 0;">Volume</span>
+                <span class="volume-value" id="volumeValue">90%</span>
+            </div>
+            <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="90">
+
+            <button class="btn btn-secondary" id="muteButton">
+                <svg class="btn-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8.5 2.5v11l-4-3H2V5.5h2.5l4-3zm2 3a3 3 0 010 5M12 4a5 5 0 010 8" stroke="currentColor" stroke-width="1.2" fill="none"/>
+                </svg>
+                <span>Mute</span>
             </button>
-            <div class="ms-Panel-contentInner">
-                <div class="ms-fontWeight-bold" style="font-size: 32px; text-transform: uppercase; letter-spacing: 2px;">Planet Tones</div>
 
-                <div class="ms-Dropdown" id="systemDropdown" tabindex="0">
-                    <label class="ms-Label">Planet Configuration:</label>
-                    <i class="ms-Dropdown-caretDown ms-Icon ms-Icon--ChevronDown"></i>
-                    <select id="system" class="ms-Dropdown-select">
-                    </select>
-                </div>
-                <div class="ms-Dropdown ms-fontColor-themePrimary" id="h-scale-dropdown" tabindex="1">
-                    <label class="ms-Label">Horizontal Scale: </label>
-                    <i class="ms-Dropdown-caretDown ms-Icon ms-Icon--ChevronDown"></i>
-                    <select class="ms-Dropdown-select" id="scale_h">
-                    </select>
-                </div>
-                <div class="ms-Dropdown" id="v-scale-dropdown" tabindex="2">
-                    <label class="ms-Label">Vertical Scale:</label>
-                    <i class="ms-Dropdown-caretDown ms-Icon ms-Icon--ChevronDown"></i>
-                    <select id="scale_v" class="ms-Dropdown-select">
-                    </select>
-                </div>
-                <div class="ms-Toggle">
-                    <span class="ms-Toggle-description">Show Notes in scale:</span>
-                    <input type="checkbox" id="showNotes" class="ms-Toggle-input" />
-                    <label for="showNotes" class="ms-Toggle-field" tabindex="0">
-                        <span class="ms-Label ms-Label--off">Off</span>
-                        <span class="ms-Label ms-Label--on">On</span>
-                    </label>
-                </div>
-                <div class="ms-Toggle">
-                    <span class="ms-Toggle-description">Randomize Octaves:</span>
-                    <input type="checkbox" id="randomizeOctaves" class="ms-Toggle-input" />
-                    <label for="randomizeOctaves" class="ms-Toggle-field" tabindex="0">
-                        <span class="ms-Label ms-Label--off">Off</span>
-                        <span class="ms-Label ms-Label--on">On</span>
-                    </label>
-                </div>
-                <div class="ms-Dropdown" id="grid-size-dropdown">
-                    <label class="ms-Label">GridSize:</label>
-                    <i class="ms-Dropdown-caretDown ms-Icon ms-Icon--ChevronDown"></i>
-                    <select id="gridSize" class="ms-Dropdown-select">
-                        <!--<option>Set the size of the grid;hellip;</option>-->
-                        <option value="10">10</option>
-                        <option value="12">12</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="200">200</option>
-                    </select>
-                </div>
+            <div class="section-divider"></div>
 
-                <div style="margin: 8px 0;">
-                    <label class="ms-Label">Volume:</label>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <input type="range" id="volumeSlider" min="-60" max="10" value="-20" style="flex: 1;">
-                        <span id="volumeValue" class="ms-Label" style="width: 60px; text-align: left; margin: 0; white-space: nowrap;">-20 dB</span>
-                        <button class="ms-Button" id="muteButton" style="width: 75px;"><span class="ms-Button-label">Mute</span></button>
-                    </div>
-                </div>
-
-                <div class="ms-Dropdown" id="audio-out-dropdown" tabindex="5">
-                    <label class="ms-Label">Midi Ouput:</label>
-                    <i class="ms-Dropdown-caretDown ms-Icon ms-Icon--ChevronDown"></i>
-                    <select id="midiOutput" class="ms-Dropdown-select">
-                    </select>
-                </div>
-                <button class="ms-Button" id="stopButton"><span class="ms-Button-label">Stop All</span></button>
+            <!-- MIDI Output -->
+            <div class="form-group">
+                <label class="form-label">MIDI Output</label>
+                <select id="midiOutput" class="dropdown-select">
+                </select>
             </div>
+
+            <!-- Stop All Button -->
+            <button class="btn btn-danger" id="stopButton">
+                <svg class="btn-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm2.5 4.5l-5 5m0-5l5 5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                </svg>
+                <span>Stop All</span>
+            </button>
         </div>
     </div>
-
-
-
 
     <canvas id="canvas" resize></canvas>
 
     <script type="text/javascript">
-        var CheckBoxElements = document.querySelectorAll(".ms-CheckBox");
-        for (var i = 0; i < CheckBoxElements.length; i++) {
-            new fabric['CheckBox'](CheckBoxElements[i]);
-        }
-
+        // Sidebar toggle functionality
         var menuToggle = document.getElementById("menuToggle");
         var hamburger = menuToggle.querySelector(".hamburger");
-        var panel = document.querySelector(".ms-Panel");
-        var panelInstance = null;
-        var isOpen = false;
+        var sidebarPanel = document.getElementById("sidebarPanel");
+        var sidebarOverlay = document.getElementById("sidebarOverlay");
+        var closeButton = document.getElementById("closeButton");
 
-        menuToggle.addEventListener("click", function() {
-            hamburger.classList.toggle("active");
-            isOpen = !isOpen;
-            if (isOpen) {
-                panelInstance = new fabric['Panel'](panel);
-            } else if (panelInstance) {
-                // Close the panel by clicking overlay or triggering close
-                var overlay = document.querySelector(".ms-Overlay");
-                if (overlay) overlay.click();
-            }
-        });
-
-        // Listen for panel close via overlay click
-        document.addEventListener("click", function(e) {
-            if (e.target.classList.contains("ms-Overlay") && isOpen) {
-                hamburger.classList.remove("active");
-                isOpen = false;
-            }
-        });
-
-        var ToggleElements = document.querySelectorAll(".ms-Toggle");
-        for (var i = 0; i < ToggleElements.length; i++) {
-            new fabric['Toggle'](ToggleElements[i]);
+        function openSidebar() {
+            hamburger.classList.add("active");
+            sidebarPanel.classList.add("open");
+            sidebarOverlay.classList.add("open");
         }
 
-        // Volume slider and mute button
+        function closeSidebar() {
+            hamburger.classList.remove("active");
+            sidebarPanel.classList.remove("open");
+            sidebarOverlay.classList.remove("open");
+        }
+
+        menuToggle.addEventListener("click", function() {
+            if (sidebarPanel.classList.contains("open")) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        });
+
+        closeButton.addEventListener("click", closeSidebar);
+        sidebarOverlay.addEventListener("click", closeSidebar);
+
+        // Volume slider functionality
         var volumeSlider = document.getElementById("volumeSlider");
         var volumeValue = document.getElementById("volumeValue");
         var muteButton = document.getElementById("muteButton");
         var isMuted = false;
+        var lastVolume = 90;
+
+        function updateVolumeSliderBackground() {
+            var value = volumeSlider.value;
+            var percentage = value + "%";
+            volumeSlider.style.background = "linear-gradient(to right, #0078d4 " + percentage + ", #e0e0e0 " + percentage + ")";
+        }
 
         volumeSlider.addEventListener("input", function() {
-            var db = parseInt(volumeSlider.value);
-            if (db <= -60) {
-                volumeValue.textContent = "Mute";
-                if (window.sim && window.sim.toneInterface) {
-                    window.sim.toneInterface.setMute(true);
-                }
-            } else {
-                volumeValue.textContent = db + " dB";
-                if (window.sim && window.sim.toneInterface) {
-                    window.sim.toneInterface.setMute(false);
+            var value = parseInt(volumeSlider.value);
+            volumeValue.textContent = value + "%";
+            updateVolumeSliderBackground();
+
+            // Convert percentage to dB (-60 to 0)
+            var db = value === 0 ? -60 : (value / 100) * 60 - 60;
+            if (window.sim && window.sim.toneInterface) {
+                window.sim.toneInterface.setMute(value === 0);
+                if (value > 0) {
                     window.sim.toneInterface.setVolume(db);
                 }
             }
@@ -288,21 +528,46 @@
 
         muteButton.addEventListener("click", function() {
             isMuted = !isMuted;
-            var label = muteButton.querySelector(".ms-Button-label");
+            var label = muteButton.querySelector("span:last-child");
             if (isMuted) {
+                lastVolume = volumeSlider.value;
+                volumeSlider.value = 0;
+                volumeValue.textContent = "0%";
                 label.textContent = "Unmute";
                 if (window.sim && window.sim.toneInterface) {
                     window.sim.toneInterface.setMute(true);
                 }
             } else {
+                volumeSlider.value = lastVolume;
+                volumeValue.textContent = lastVolume + "%";
                 label.textContent = "Mute";
                 if (window.sim && window.sim.toneInterface) {
                     window.sim.toneInterface.setMute(false);
                 }
             }
+            updateVolumeSliderBackground();
         });
 
-            </script>
+        // Initialize slider background and volume
+        updateVolumeSliderBackground();
+
+        // Set initial volume on load
+        setTimeout(function() {
+            var value = parseInt(volumeSlider.value);
+            var db = value === 0 ? -60 : (value / 100) * 60 - 60;
+            if (window.sim && window.sim.toneInterface) {
+                window.sim.toneInterface.setVolume(db);
+            }
+        }, 100);
+
+        // Auto-zoom toggle
+        var autoZoomToggle = document.getElementById("autoZoom");
+        autoZoomToggle.addEventListener("change", function() {
+            if (window.sim) {
+                window.sim.setAutoZoom(autoZoomToggle.checked);
+            }
+        });
+    </script>
 
     <script src="./dist/planets.js"
             type="text/paperscript"
